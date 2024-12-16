@@ -25,23 +25,23 @@ func NewClient(endpoint string, token string) *Client {
 
 // KnowledgeForm represents the request body for creating/updating a knowledge base
 type KnowledgeForm struct {
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	Data          map[string]string `json:"data,omitempty"`
-	AccessControl map[string]string `json:"access_control,omitempty"`
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description"`
+	Data          map[string]string      `json:"data,omitempty"`
+	AccessControl map[string]interface{} `json:"access_control,omitempty"`
 }
 
 // KnowledgeResponse represents the response from the knowledge API
 type KnowledgeResponse struct {
-	ID            string            `json:"id"`
-	UserID        string            `json:"user_id"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	Data          map[string]string `json:"data,omitempty"`
-	Meta          map[string]string `json:"meta,omitempty"`
-	AccessControl map[string]string `json:"access_control,omitempty"`
-	CreatedAt     int64             `json:"created_at"`
-	UpdatedAt     int64             `json:"updated_at"`
+	ID            string                 `json:"id"`
+	UserID        string                 `json:"user_id"`
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description"`
+	Data          map[string]string      `json:"data,omitempty"`
+	Meta          map[string]string      `json:"meta,omitempty"`
+	AccessControl map[string]interface{} `json:"access_control,omitempty"`
+	CreatedAt     int64                  `json:"created_at"`
+	UpdatedAt     int64                  `json:"updated_at"`
 }
 
 // CreateKnowledge creates a new knowledge base

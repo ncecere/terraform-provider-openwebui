@@ -31,7 +31,9 @@ type KnowledgeResourceModel struct {
 	Name          types.String `tfsdk:"name"`
 	Description   types.String `tfsdk:"description"`
 	Data          types.Map    `tfsdk:"data"`
-	AccessControl types.Map    `tfsdk:"access_control"`
+	AccessControl types.String `tfsdk:"access_control"`
+	AccessGroups  types.List   `tfsdk:"access_groups"`
+	AccessUsers   types.List   `tfsdk:"access_users"`
 	LastUpdated   types.String `tfsdk:"last_updated"`
 }
 
@@ -64,9 +66,18 @@ func (r *KnowledgeResource) Schema(ctx context.Context, req resource.SchemaReque
 				MarkdownDescription: "Additional data for the knowledge base",
 				Optional:            true,
 			},
-			"access_control": schema.MapAttribute{
+			"access_control": schema.StringAttribute{
+				MarkdownDescription: "Access control type ('public' or 'private')",
+				Required:            true,
+			},
+			"access_groups": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "Access control settings for the knowledge base",
+				MarkdownDescription: "List of group IDs with access (only used when access_control is 'private')",
+				Optional:            true,
+			},
+			"access_users": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of user IDs with access (only used when access_control is 'private')",
 				Optional:            true,
 			},
 			"last_updated": schema.StringAttribute{
@@ -94,6 +105,50 @@ func (r *KnowledgeResource) Configure(ctx context.Context, req resource.Configur
 	r.client = client
 }
 
+func buildAccessControl(ctx context.Context, accessControl types.String, accessGroups types.List, accessUsers types.List) (map[string]interface{}, error) {
+	if accessControl.ValueString() == "public" {
+		return nil, nil
+	}
+
+	result := map[string]interface{}{
+		"read": map[string]interface{}{
+			"group_ids": []string{},
+			"user_ids":  []string{},
+		},
+		"write": map[string]interface{}{
+			"group_ids": []string{},
+			"user_ids":  []string{},
+		},
+	}
+
+	readAccess := result["read"].(map[string]interface{})
+	writeAccess := result["write"].(map[string]interface{})
+
+	// Convert group IDs
+	var groupIds []string
+	if !accessGroups.IsNull() {
+		diags := accessGroups.ElementsAs(ctx, &groupIds, false)
+		if diags.HasError() {
+			return nil, fmt.Errorf("error converting group IDs: %v", diags)
+		}
+	}
+	readAccess["group_ids"] = groupIds
+	writeAccess["group_ids"] = groupIds
+
+	// Convert user IDs
+	var userIds []string
+	if !accessUsers.IsNull() {
+		diags := accessUsers.ElementsAs(ctx, &userIds, false)
+		if diags.HasError() {
+			return nil, fmt.Errorf("error converting user IDs: %v", diags)
+		}
+	}
+	readAccess["user_ids"] = userIds
+	writeAccess["user_ids"] = userIds
+
+	return result, nil
+}
+
 func (r *KnowledgeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data KnowledgeResourceModel
 
@@ -119,15 +174,13 @@ func (r *KnowledgeResource) Create(ctx context.Context, req resource.CreateReque
 		knowledgeForm.Data = dataMap
 	}
 
-	// Convert access control map if present
-	if !data.AccessControl.IsNull() {
-		accessMap := make(map[string]string)
-		resp.Diagnostics.Append(data.AccessControl.ElementsAs(ctx, &accessMap, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		knowledgeForm.AccessControl = accessMap
+	// Build access control structure
+	accessControl, err := buildAccessControl(ctx, data.AccessControl, data.AccessGroups, data.AccessUsers)
+	if err != nil {
+		resp.Diagnostics.AddError("Access Control Error", err.Error())
+		return
 	}
+	knowledgeForm.AccessControl = accessControl
 
 	// Create new knowledge base
 	result, err := r.client.CreateKnowledge(knowledgeForm)
@@ -175,16 +228,6 @@ func (r *KnowledgeResource) Read(ctx context.Context, req resource.ReadRequest, 
 		data.Data = dataMap
 	}
 
-	// Update access control map if present
-	if result.AccessControl != nil {
-		accessMap, err := types.MapValueFrom(ctx, types.StringType, result.AccessControl)
-		if err != nil {
-			resp.Diagnostics.AddError("Conversion Error", fmt.Sprintf("Unable to convert access control map, got error: %s", err))
-			return
-		}
-		data.AccessControl = accessMap
-	}
-
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -214,15 +257,13 @@ func (r *KnowledgeResource) Update(ctx context.Context, req resource.UpdateReque
 		knowledgeForm.Data = dataMap
 	}
 
-	// Convert access control map if present
-	if !data.AccessControl.IsNull() {
-		accessMap := make(map[string]string)
-		resp.Diagnostics.Append(data.AccessControl.ElementsAs(ctx, &accessMap, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		knowledgeForm.AccessControl = accessMap
+	// Build access control structure
+	accessControl, err := buildAccessControl(ctx, data.AccessControl, data.AccessGroups, data.AccessUsers)
+	if err != nil {
+		resp.Diagnostics.AddError("Access Control Error", err.Error())
+		return
 	}
+	knowledgeForm.AccessControl = accessControl
 
 	// Update knowledge base
 	result, err := r.client.UpdateKnowledge(data.ID.ValueString(), knowledgeForm)
