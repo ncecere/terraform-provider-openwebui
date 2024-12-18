@@ -1,6 +1,6 @@
 # Terraform Provider OpenWebUI
 
-This Terraform provider allows you to manage resources in an OpenWebUI instance.
+This Terraform provider allows you to manage OpenWebUI resources through Terraform.
 
 ## Requirements
 
@@ -11,7 +11,7 @@ This Terraform provider allows you to manage resources in an OpenWebUI instance.
 
 1. Clone the repository
 ```shell
-git clone https://github.com/ncecere/terraform-provider-openwebui
+git clone git@github.com:ncecere/terraform-provider-openwebui.git
 ```
 
 2. Enter the repository directory
@@ -24,9 +24,23 @@ cd terraform-provider-openwebui
 make build
 ```
 
-## Installing the Provider
+## Installing The Provider
 
-To use the provider in your Terraform configuration, add the following terraform block:
+To install the provider for local development:
+
+```shell
+make install
+```
+
+This will build and install the provider into your `~/.terraform.d/plugins` directory.
+
+## Using the Provider
+
+To use the provider, you'll need:
+1. An OpenWebUI instance
+2. An API token for authentication
+
+Configure the provider in your Terraform configuration:
 
 ```hcl
 terraform {
@@ -36,79 +50,93 @@ terraform {
     }
   }
 }
-```
 
-## Using the Provider
-
-To configure the provider:
-
-```hcl
 provider "openwebui" {
-  endpoint = "http://localhost:8080"  # OpenWebUI API endpoint
-  # token = "your-api-token"         # Token can be provided here or via OPENWEBUI_TOKEN env var
+  endpoint = "http://your-openwebui-instance"  # Or use OPENWEBUI_ENDPOINT env var
+  token    = "your-api-token"                  # Or use OPENWEBUI_TOKEN env var
 }
 ```
 
-### Managing Knowledge Bases
+### Example Usage
 
-Create a knowledge base:
+Creating a knowledge base:
 
 ```hcl
 resource "openwebui_knowledge" "example" {
   name        = "Example Knowledge Base"
   description = "This is an example knowledge base"
   
-  # Optional: Additional data
   data = {
-    key = "value"
+    source = "terraform"
+    type   = "example"
   }
   
-  # Optional: Access control settings
-  access_control = {
-    visibility = "private"
-  }
+  access_control = "public"  # or "private"
 }
 ```
 
-## Environment Variables
+Looking up an existing knowledge base:
 
-The following environment variables can be used to configure the provider:
+```hcl
+data "openwebui_knowledge" "lookup" {
+  name = "Example Knowledge Base"
+}
+```
 
-- `OPENWEBUI_ENDPOINT`: The endpoint URL of the OpenWebUI instance
-- `OPENWEBUI_TOKEN`: The API token to authenticate with OpenWebUI
+## Project Structure
+
+The provider is organized into several key components:
+
+```
+terraform-provider-openwebui/
+├── docs/                    # Provider documentation
+├── examples/               # Example configurations
+├── internal/
+│   └── provider/
+│       ├── client/         # API client implementations
+│       │   ├── knowledge/  # Knowledge-specific client
+│       │   └── ...        # Other resource clients
+│       └── ...            # Provider and resource implementations
+└── local_testing/         # Local development test configurations
+```
 
 ## Development
 
-### Requirements
+### Adding a New Resource
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.19
+1. Create a new client package in `internal/provider/client/`
+2. Implement the resource client interface
+3. Add resource implementation in `internal/provider/`
+4. Update provider to include the new resource
+5. Add documentation and examples
 
-### Building
-
-1. Clone the repository
-2. Enter the repository directory
-3. Build the provider using the `make build` command
-
-```shell
-make build
-```
-
-### Testing
-
-To run the tests:
+### Running Tests
 
 ```shell
 make test
 ```
 
-### Documentation
+### Local Testing
 
-Documentation is generated from the provider schema. The schema is defined in the provider code and is used to generate both the documentation and the provider's configuration interface.
+1. Build and install the provider:
+```shell
+make build install
+```
+
+2. Use the example configurations in `local_testing/`:
+```shell
+cd local_testing
+terraform init
+terraform apply
+```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
