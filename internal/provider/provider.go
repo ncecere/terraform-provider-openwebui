@@ -115,6 +115,7 @@ func (p *OpenWebUIProvider) Configure(ctx context.Context, req provider.Configur
 func (p *OpenWebUIProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewKnowledgeResource,
+		NewGroupResource,
 	}
 }
 

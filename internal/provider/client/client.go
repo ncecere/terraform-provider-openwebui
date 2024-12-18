@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 
+	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/groups"
 	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/knowledge"
 )
 
@@ -10,6 +11,7 @@ import (
 type OpenWebUIClient struct {
 	BaseClient
 	Knowledge *knowledge.Client
+	Groups    *groups.Client
 }
 
 // New creates a new OpenWebUI client
@@ -25,6 +27,7 @@ func New(endpoint, token string) (*OpenWebUIClient, error) {
 	return &OpenWebUIClient{
 		BaseClient: base,
 		Knowledge:  knowledge.NewClient(endpoint, token),
+		Groups:     groups.NewClient(endpoint, token),
 	}, nil
 }
 
