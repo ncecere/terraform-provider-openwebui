@@ -122,6 +122,7 @@ func (p *OpenWebUIProvider) Resources(ctx context.Context) []func() resource.Res
 func (p *OpenWebUIProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewKnowledgeDataSource,
+		NewGroupDataSource,
 	}
 }
 
