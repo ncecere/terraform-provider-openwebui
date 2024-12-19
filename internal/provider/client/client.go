@@ -5,6 +5,7 @@ import (
 
 	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/groups"
 	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/knowledge"
+	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/models"
 )
 
 // OpenWebUIClient implements the Client interface
@@ -12,6 +13,7 @@ type OpenWebUIClient struct {
 	BaseClient
 	Knowledge *knowledge.Client
 	Groups    *groups.Client
+	Models    *models.Client
 }
 
 // New creates a new OpenWebUI client
@@ -28,6 +30,7 @@ func New(endpoint, token string) (*OpenWebUIClient, error) {
 		BaseClient: base,
 		Knowledge:  knowledge.NewClient(endpoint, token),
 		Groups:     groups.NewClient(endpoint, token),
+		Models:     models.NewClient(endpoint, token),
 	}, nil
 }
 
@@ -54,4 +57,29 @@ func (c *OpenWebUIClient) Update(id string, form *knowledge.KnowledgeForm) (*kno
 // Delete implements KnowledgeClient
 func (c *OpenWebUIClient) Delete(id string) error {
 	return c.Knowledge.Delete(id)
+}
+
+// GetModel implements ModelsClient
+func (c *OpenWebUIClient) GetModel(id string) (*models.Model, error) {
+	return c.Models.GetModel(id)
+}
+
+// GetModels implements ModelsClient
+func (c *OpenWebUIClient) GetModels() ([]models.Model, error) {
+	return c.Models.GetModels()
+}
+
+// CreateModel implements ModelsClient
+func (c *OpenWebUIClient) CreateModel(model *models.Model) (*models.Model, error) {
+	return c.Models.CreateModel(model)
+}
+
+// UpdateModel implements ModelsClient
+func (c *OpenWebUIClient) UpdateModel(id string, model *models.Model) (*models.Model, error) {
+	return c.Models.UpdateModel(id, model)
+}
+
+// DeleteModel implements ModelsClient
+func (c *OpenWebUIClient) DeleteModel(id string) error {
+	return c.Models.DeleteModel(id)
 }

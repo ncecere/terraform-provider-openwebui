@@ -10,42 +10,41 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client"
+	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/groups"
+	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/knowledge"
+	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/models"
 )
 
-// Ensure OpenWebUIProvider satisfies various provider interfaces.
-var _ provider.Provider = &OpenWebUIProvider{}
+var (
+	_ provider.Provider = &OpenWebUIProvider{}
+)
 
-// OpenWebUIProvider defines the provider implementation.
 type OpenWebUIProvider struct {
-	// version is set to the provider version on release, "dev" when the
-	// provider is built and ran locally, and "test" when running acceptance
-	// testing.
 	version string
 }
 
-// OpenWebUIProviderModel describes the provider data model.
 type OpenWebUIProviderModel struct {
 	Endpoint types.String `tfsdk:"endpoint"`
 	Token    types.String `tfsdk:"token"`
 }
 
-func (p *OpenWebUIProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+func (p *OpenWebUIProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
 	resp.TypeName = "openwebui"
 	resp.Version = p.version
 }
 
-func (p *OpenWebUIProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *OpenWebUIProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Interact with OpenWebUI.",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "OpenWebUI API endpoint URL. Can also be set with OPENWEBUI_ENDPOINT environment variable.",
-				Optional:            true,
+				Description: "The endpoint URL of the OpenWebUI API. May also be provided via OPENWEBUI_ENDPOINT environment variable.",
+				Optional:    true,
 			},
 			"token": schema.StringAttribute{
-				MarkdownDescription: "OpenWebUI API token. Can also be set with OPENWEBUI_TOKEN environment variable.",
-				Optional:            true,
-				Sensitive:           true,
+				Description: "The token to authenticate with the OpenWebUI API. May also be provided via OPENWEBUI_TOKEN environment variable.",
+				Optional:    true,
+				Sensitive:   true,
 			},
 		},
 	}
@@ -53,25 +52,23 @@ func (p *OpenWebUIProvider) Schema(ctx context.Context, req provider.SchemaReque
 
 func (p *OpenWebUIProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var config OpenWebUIProviderModel
-
-	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Check environment variables
-	endpoint := os.Getenv("OPENWEBUI_ENDPOINT")
-	token := os.Getenv("OPENWEBUI_TOKEN")
-
-	if !config.Endpoint.IsNull() {
-		endpoint = config.Endpoint.ValueString()
+	if config.Endpoint.IsNull() {
+		endpoint := os.Getenv("OPENWEBUI_ENDPOINT")
+		config.Endpoint = types.StringValue(endpoint)
 	}
 
-	if !config.Token.IsNull() {
-		token = config.Token.ValueString()
+	if config.Token.IsNull() {
+		token := os.Getenv("OPENWEBUI_TOKEN")
+		config.Token = types.StringValue(token)
 	}
 
-	if endpoint == "" {
+	if config.Endpoint.IsNull() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("endpoint"),
 			"Missing OpenWebUI API Endpoint",
@@ -81,7 +78,7 @@ func (p *OpenWebUIProvider) Configure(ctx context.Context, req provider.Configur
 		)
 	}
 
-	if token == "" {
+	if config.Token.IsNull() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("token"),
 			"Missing OpenWebUI API Token",
@@ -95,34 +92,35 @@ func (p *OpenWebUIProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	// Create new OpenWebUI client using the configuration
-	client, err := client.New(endpoint, token)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Create OpenWebUI API Client",
-			"An unexpected error occurred when creating the OpenWebUI API client. "+
-				"If the error is not clear, please contact the provider developers.\n\n"+
-				"OpenWebUI Client Error: "+err.Error(),
-		)
-		return
+	// Create new OpenWebUI clients
+	groupsClient := groups.NewClient(config.Endpoint.ValueString(), config.Token.ValueString())
+	knowledgeClient := knowledge.NewClient(config.Endpoint.ValueString(), config.Token.ValueString())
+	modelsClient := models.NewClient(config.Endpoint.ValueString(), config.Token.ValueString())
+
+	// Create a map to store all clients
+	clients := map[string]interface{}{
+		"groups":    groupsClient,
+		"knowledge": knowledgeClient,
+		"models":    modelsClient,
 	}
 
-	// Make the client available during DataSource and Resource Configure methods
-	resp.DataSourceData = client
-	resp.ResourceData = client
+	resp.DataSourceData = clients
+	resp.ResourceData = clients
 }
 
-func (p *OpenWebUIProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		NewKnowledgeResource,
-		NewGroupResource,
-	}
-}
-
-func (p *OpenWebUIProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (p *OpenWebUIProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewKnowledgeDataSource,
 		NewGroupDataSource,
+		NewKnowledgeDataSource,
+		NewModelDataSource,
+	}
+}
+
+func (p *OpenWebUIProvider) Resources(_ context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewGroupResource,
+		NewKnowledgeResource,
+		NewModelResource,
 	}
 }
 
