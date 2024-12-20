@@ -13,6 +13,7 @@ import (
 	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/groups"
 	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/knowledge"
 	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/models"
+	"github.com/ncecere/terraform-provider-openwebui/internal/provider/client/users"
 )
 
 var (
@@ -96,12 +97,14 @@ func (p *OpenWebUIProvider) Configure(ctx context.Context, req provider.Configur
 	groupsClient := groups.NewClient(config.Endpoint.ValueString(), config.Token.ValueString())
 	knowledgeClient := knowledge.NewClient(config.Endpoint.ValueString(), config.Token.ValueString())
 	modelsClient := models.NewClient(config.Endpoint.ValueString(), config.Token.ValueString())
+	usersClient := users.NewClient(config.Endpoint.ValueString(), config.Token.ValueString())
 
 	// Create a map to store all clients
 	clients := map[string]interface{}{
 		"groups":    groupsClient,
 		"knowledge": knowledgeClient,
 		"models":    modelsClient,
+		"users":     usersClient,
 	}
 
 	resp.DataSourceData = clients
@@ -113,6 +116,7 @@ func (p *OpenWebUIProvider) DataSources(_ context.Context) []func() datasource.D
 		NewGroupDataSource,
 		NewKnowledgeDataSource,
 		NewModelDataSource,
+		NewUserDataSource,
 	}
 }
 
