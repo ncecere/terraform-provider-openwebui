@@ -59,6 +59,7 @@ Note: While these configuration values are marked as optional in the schema, you
 - [Group](./data-sources/group.md) - Query existing groups in OpenWebUI
 - [Knowledge Base](./data-sources/knowledge.md) - Query existing knowledge bases in OpenWebUI
 - [Model](./data-sources/model.md) - Query existing models in OpenWebUI
+- [User](./data-sources/user.md) - Query existing users in OpenWebUI
 
 ## Development
 
