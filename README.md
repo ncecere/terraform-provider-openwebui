@@ -1,143 +1,194 @@
-# Terraform Provider OpenWebUI
+# Terraform Provider for OpenWebUI
 
-This Terraform provider allows you to manage OpenWebUI resources through Terraform.
+This Terraform provider enables infrastructure-as-code management of OpenWebUI resources, allowing you to automate the configuration of users, groups, knowledge bases, and models in your OpenWebUI instance.
+
+## Features
+
+- **User Management**: Query user information and integrate with other resources
+- **Group Management**: Create and manage user groups with granular permissions
+- **Knowledge Base Management**: Create and configure knowledge bases with access controls
+- **Model Management**: Deploy and configure AI models with custom parameters
 
 ## Requirements
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
 - [Go](https://golang.org/doc/install) >= 1.19
+- An OpenWebUI instance with API access
 
-## Building The Provider
+## Quick Start
+
+1. **Install the Provider**
+
+   ```hcl
+   terraform {
+     required_providers {
+       openwebui = {
+         source = "ncecere/openwebui"
+       }
+     }
+   }
+   ```
+
+2. **Configure Provider Authentication**
+
+   ```hcl
+   provider "openwebui" {
+     endpoint = "http://your-openwebui-instance"  # Or use OPENWEBUI_ENDPOINT env var
+     token    = "your-api-token"                  # Or use OPENWEBUI_TOKEN env var
+   }
+   ```
+
+3. **Start Managing Resources**
+
+   See the examples below for common use cases.
+
+## Installation
+
+### From Terraform Registry
+
+The provider is available on the [Terraform Registry](https://registry.terraform.io/providers/ncecere/openwebui/latest). Terraform will automatically download the provider when you run `terraform init`.
+
+### Local Development Build
 
 1. Clone the repository
-```shell
-git clone git@github.com:ncecere/terraform-provider-openwebui.git
-```
+   ```shell
+   git clone git@github.com:ncecere/terraform-provider-openwebui.git
+   cd terraform-provider-openwebui
+   ```
 
-2. Enter the repository directory
-```shell
-cd terraform-provider-openwebui
-```
+2. Build and install locally
+   ```shell
+   make build install
+   ```
 
-3. Build the provider
-```shell
-make build
-```
+   This will build and install the provider into your `~/.terraform.d/plugins` directory.
 
-## Installing The Provider
+For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-To install the provider for local development:
+## Example Usage
 
-```shell
-make install
-```
-
-This will build and install the provider into your `~/.terraform.d/plugins` directory.
-
-## Using the Provider
-
-To use the provider, you'll need:
-1. An OpenWebUI instance
-2. An API token for authentication
-
-Configure the provider in your Terraform configuration:
+### User and Group Management
 
 ```hcl
-terraform {
-  required_providers {
-    openwebui = {
-      source = "ncecere/openwebui"
+# Look up user information
+data "openwebui_user" "admin" {
+  email = "admin@example.com"
+}
+
+# Create an administrative group
+resource "openwebui_group" "admins" {
+  name        = "administrators"
+  description = "Administrative group with full permissions"
+  user_ids    = [data.openwebui_user.admin.id]
+
+  permissions = {
+    workspace = {
+      models    = true
+      knowledge = true
+      prompts   = true
+      tools     = true
+    }
+    chat = {
+      file_upload = true
+      delete      = true
+      edit        = true
+      temporary   = true
     }
   }
 }
-
-provider "openwebui" {
-  endpoint = "http://your-openwebui-instance"  # Or use OPENWEBUI_ENDPOINT env var
-  token    = "your-api-token"                  # Or use OPENWEBUI_TOKEN env var
-}
 ```
 
-### Example Usage
-
-Creating a knowledge base:
+### Knowledge Base Configuration
 
 ```hcl
-resource "openwebui_knowledge" "example" {
-  name        = "Example Knowledge Base"
-  description = "This is an example knowledge base"
+# Create a knowledge base with access control
+resource "openwebui_knowledge" "team_docs" {
+  name          = "Team Documentation"
+  description   = "Internal team documentation and resources"
+  access_control = "private"
   
   data = {
     source = "terraform"
-    type   = "example"
+    type   = "documentation"
+    team   = "engineering"
   }
-  
-  access_control = "public"  # or "private"
+}
+
+# Query existing knowledge base
+data "openwebui_knowledge" "existing" {
+  name = "Existing Knowledge Base"
 }
 ```
 
-Looking up an existing knowledge base:
+### Model Deployment
 
 ```hcl
-data "openwebui_knowledge" "lookup" {
-  name = "Example Knowledge Base"
+# Deploy a custom model
+resource "openwebui_model" "custom_assistant" {
+  base_model_id = "gpt-4"
+  name          = "Engineering Assistant"
+  is_active     = true
+
+  params {
+    system          = "You are a helpful engineering assistant"
+    temperature     = 0.7
+    max_tokens      = 2000
+    num_ctx         = 4096
+  }
+
+  meta {
+    description = "Specialized assistant for engineering tasks"
+    capabilities {
+      vision    = false
+      usage     = true
+      citations = true
+    }
+    tags {
+      name = "engineering"
+    }
+  }
+
+  access_control {
+    read {
+      group_ids = [openwebui_group.admins.id]
+    }
+  }
 }
 ```
+
+## Documentation
+
+- [Provider Configuration](docs/index.md)
+- [User Data Source](docs/data-sources/user.md)
+- [Group Resource](docs/resources/group.md)
+- [Group Data Source](docs/data-sources/group.md)
+- [Knowledge Base Resource](docs/resources/knowledge.md)
+- [Knowledge Base Data Source](docs/data-sources/knowledge.md)
+- [Model Resource](docs/resources/model.md)
+- [Model Data Source](docs/data-sources/model.md)
+- [Development Guide](DEVELOPMENT.md)
 
 ## Project Structure
 
-The provider is organized into several key components:
-
 ```
 terraform-provider-openwebui/
-├── docs/                    # Provider documentation
-├── examples/               # Example configurations
-├── internal/
+├── docs/                    # Provider and resource documentation
+├── examples/               # Example configurations for each resource
+├── internal/              # Provider implementation
 │   └── provider/
-│       ├── client/         # API client implementations
-│       │   ├── knowledge/  # Knowledge-specific client
-│       │   └── ...        # Other resource clients
-│       └── ...            # Provider and resource implementations
-└── local_testing/         # Local development test configurations
-```
-
-## Development
-
-### Adding a New Resource
-
-1. Create a new client package in `internal/provider/client/`
-2. Implement the resource client interface
-3. Add resource implementation in `internal/provider/`
-4. Update provider to include the new resource
-5. Add documentation and examples
-
-### Running Tests
-
-```shell
-make test
-```
-
-### Local Testing
-
-1. Build and install the provider:
-```shell
-make build install
-```
-
-2. Use the example configurations in `local_testing/`:
-```shell
-cd local_testing
-terraform init
-terraform apply
+│       ├── client/        # API client implementations
+│       │   ├── groups/    # Group-specific client
+│       │   ├── knowledge/ # Knowledge-specific client
+│       │   ├── models/    # Model-specific client
+│       │   └── users/     # User-specific client
+│       └── ...           # Provider and resource implementations
+└── local_testing/        # Local development test configurations
 ```
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-This provider is licensed under the MIT License. See the LICENSE file for details.
+This provider is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
