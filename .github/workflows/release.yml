@@ -1,37 +1,52 @@
+# Terraform Provider release workflow.
 name: Release
 
+# This GitHub action creates a release when a tag that matches the pattern
+# "v*" (e.g. v0.1.0) is created.
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   workflow_dispatch:
 
+# Releases need permissions to read and write the repository contents.
+# GitHub considers creating releases and uploading assets as writing contents.
 permissions:
   contents: write
-  id-token: write
+  packages: write
 
 jobs:
-  release:
+  goreleaser:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         with:
+          # Allow goreleaser to access older tag information.
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
-          go-version-file: go.mod
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Run unit tests
         run: go test ./...
 
-      - name: Build provider
-        run: go build -trimpath ./...
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4 # v6.1.0
+        id: import_gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
 
-      - name: Publish provider artifacts
-        uses: hashicorp/terraform-provider-release-action@v1
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200 # v6.0.0
+        with:
+          args: release --clean
         env:
+          # GitHub sets the GITHUB_TOKEN secret automatically.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           TERRAFORM_REGISTRY_TOKEN: ${{ secrets.TERRAFORM_REGISTRY_TOKEN }}

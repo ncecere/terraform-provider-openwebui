@@ -59,6 +59,11 @@ git push origin v2.0.0
 
 Ensure the repository is configured with a `TERRAFORM_REGISTRY_TOKEN` secret that has permission to publish to registry.terraform.io.
 
+The workflow expects a signing key so that GoReleaser can sign the checksum file. Add two additional repository secrets before releasing:
+
+- `GPG_PRIVATE_KEY` – ASCII-armoured private key used for signing.
+- `PASSPHRASE` – Passphrase for the above key (leave blank if the key is not protected).
+
 ## Provider Configuration
 
 ```hcl

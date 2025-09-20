@@ -1,0 +1,49 @@
+project_name: terraform-provider-openwebui
+
+dist: dist
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: terraform-provider-openwebui
+    env:
+      - CGO_ENABLED=0
+    main: .
+    binary: terraform-provider-openwebui
+    ldflags:
+      - -s -w
+      - -X github.com/nickcecere/terraform-provider-openwebui/internal/provider.Version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: terraform-provider-openwebui
+    format: zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - CHANGELOG.md
+      - terraform-registry-manifest.json
+
+checksums:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
+
+signs:
+  - artifacts: checksum
+
+release:
+  prerelease: auto
+
+changelog:
+  use: git
+  sort: asc
