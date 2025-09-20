@@ -37,7 +37,7 @@ archives:
       - CHANGELOG.md
       - terraform-registry-manifest.json
 
-checksums:
+checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
 
 signs:
