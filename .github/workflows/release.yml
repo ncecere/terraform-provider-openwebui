@@ -31,7 +31,7 @@ jobs:
         run: go build -trimpath ./...
 
       - name: Publish provider artifacts
-        uses: hashicorp/terraform-provider-release@v1
+        uses: hashicorp/terraform-provider-release-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TERRAFORM_REGISTRY_TOKEN: ${{ secrets.TERRAFORM_REGISTRY_TOKEN }}
