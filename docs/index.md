@@ -10,6 +10,8 @@ description: |-
 
 The OpenWebUI provider lets you manage knowledge bases, models, prompts, and groups through Terraform. It communicates with an Open WebUI deployment via the REST API and requires a bearer token for authentication.
 
+> **2.0.0** – Releases are now shipped automatically to the Terraform Registry when you push a tag that matches `v*.*.*`. Prompt commands are normalised with a leading `/`, and the group resource has dropped unsupported JSON arguments.
+
 ## Example Usage
 
 ```hcl
@@ -17,7 +19,7 @@ terraform {
   required_providers {
     openwebui = {
       source  = "nickcecere/openwebui"
-      version = "~> 0.1"
+      version = "~> 2.0"
     }
   }
 }
@@ -50,6 +52,13 @@ The provider supports the following configuration arguments:
 * [`openwebui_model`](resources/model)
 * [`openwebui_prompt`](resources/prompt)
 * [`openwebui_group`](resources/group)
+
+## Available Data Sources
+
+* [`openwebui_knowledge`](data-sources/knowledge)
+* [`openwebui_model`](data-sources/model)
+* [`openwebui_prompt`](data-sources/prompt)
+* [`openwebui_group`](data-sources/group)
 
 ## Import
 

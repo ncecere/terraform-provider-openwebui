@@ -9,6 +9,13 @@ This repository contains an experimental Terraform provider that manages Open We
 
 > ⚠️ The provider is in an early stage. API compatibility may change as Open WebUI evolves and the provider gains richer coverage and testing.
 
+## What's New in 2.0.0
+
+- Added continuous delivery via GitHub Actions to publish tagged releases directly to the Terraform Registry.
+- Normalised prompt commands so Terraform configurations can omit the leading `/` without causing API mismatches.
+- Simplified the group resource by removing unsupported `data_json` / `meta_json` arguments and stabilised group member ordering to avoid false-positive plans.
+- Updated examples and documentation to use the new structured `params`/`capabilities` attributes and the `~> 2.0` provider constraint.
+
 ## Requirements
 
 - Terraform 1.6 or newer
@@ -35,11 +42,22 @@ make install
 Copy the resulting binary into your Terraform plugin directory, for example on macOS:
 
 ```bash
-mkdir -p ~/.terraform.d/plugins/local/openwebui/openwebui/0.1.0/
-cp terraform-provider-openwebui ~/.terraform.d/plugins/local/openwebui/openwebui/0.1.0/darwin_arm64/
+mkdir -p ~/.terraform.d/plugins/local/openwebui/openwebui/2.0.0/
+cp terraform-provider-openwebui ~/.terraform.d/plugins/local/openwebui/openwebui/2.0.0/darwin_arm64/
 ```
 
 Adjust the path and OS/architecture segment to match your environment.
+
+## Publishing a Release
+
+Tagged releases matching `v*.*.*` trigger the GitHub Actions workflow that builds provider artifacts and publishes them to the Terraform Registry. To cut a release:
+
+```bash
+git tag -a v2.0.0 -m "Release 2.0.0"
+git push origin v2.0.0
+```
+
+Ensure the repository is configured with a `TERRAFORM_REGISTRY_TOKEN` secret that has permission to publish to registry.terraform.io.
 
 ## Provider Configuration
 
@@ -48,7 +66,7 @@ terraform {
   required_providers {
     openwebui = {
       source  = "local/openwebui/openwebui"
-      version = "0.1.0"
+      version = "2.0.0"
     }
   }
 }
@@ -70,12 +88,8 @@ resource "openwebui_knowledge" "example" {
   name        = "Support FAQ"
   description = "Knowledge base backing the support chat bot"
 
-  read_groups = ["Support"]
+  read_groups  = ["Support"]
   write_groups = ["Support"]
-
-  data_json = jsonencode({
-    category = "support"
-  })
 }
 ```
 
@@ -86,16 +100,18 @@ resource "openwebui_model" "example" {
   model_id = "custom-rag"
   name     = "Custom Retrieval Model"
 
-  meta_json = jsonencode({
-    description = "Retriever tuned for internal knowledge base"
-  })
-
-  params_json = jsonencode({
-    temperature = 0.1
-  })
-
+  description   = "Retriever tuned for internal knowledge base"
   base_model_id = "gpt-4o"
   is_active     = true
+
+  params = {
+    temperature = 0.1
+    max_tokens  = 512
+  }
+
+  capabilities = {
+    web_search = true
+  }
 }
 ```
 
@@ -123,11 +139,6 @@ resource "openwebui_group" "example" {
     "cj01@ufl.edu",
     "ebs@ufl.edu",
   ]
-
-  data_json = jsonencode({
-    department = "support"
-  })
-
   permissions = {
     workspace = {
       models    = true
@@ -136,11 +147,22 @@ resource "openwebui_group" "example" {
       tools     = true
     }
 
+    sharing = {
+      public_models = false
+    }
+
     chat = {
-      file_upload = true
-      delete      = true
-      edit        = true
-      temporary   = true
+      file_upload         = true
+      delete              = true
+      edit                = true
+      continue_response   = true
+      regenerate_response = true
+      temporary           = true
+    }
+
+    features = {
+      web_search       = true
+      image_generation = true
     }
   }
 }

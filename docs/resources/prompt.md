@@ -29,7 +29,7 @@ If both `read_groups` and `write_groups` are omitted (or empty), the prompt rema
 
 ## Argument Reference
 
-* `command` (Required) – Unique identifier for the prompt.
+* `command` (Required) – Unique identifier for the prompt. The provider automatically prefixes the command with `/` for API calls, so both `triage` and `/triage` are accepted.
 * `title` (Required) – Display name inside Open WebUI.
 * `content` (Required) – Prompt body text.
 * `read_groups` (Optional) – List of group names or IDs granted read access.

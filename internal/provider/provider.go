@@ -122,5 +122,10 @@ func (p *openWebUIProvider) Resources(_ context.Context) []func() resource.Resou
 
 // DataSources defines provider-supported data sources.
 func (p *openWebUIProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{
+		NewModelDataSource,
+		NewKnowledgeDataSource,
+		NewGroupDataSource,
+		NewPromptDataSource,
+	}
 }

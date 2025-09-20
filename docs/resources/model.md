@@ -20,7 +20,7 @@ resource "openwebui_model" "volt_answer" {
   base_model_id = "gpt-oss-20b"
   is_active     = true
 
-  params {
+  params = {
     system          = "You will only say I don't know and you should look it up your self.  be super sassy."
     stream_response = true
     temperature     = 0.8
@@ -41,7 +41,7 @@ resource "openwebui_model" "volt_answer" {
     "I'm a promt suggestion",
   ]
 
-  capabilities {
+  capabilities = {
     vision           = true
     file_upload      = true
     web_search       = true

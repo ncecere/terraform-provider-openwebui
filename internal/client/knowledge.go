@@ -78,6 +78,29 @@ func (c *Client) GetKnowledge(ctx context.Context, id string) (*KnowledgeFilesRe
 	return &resp, nil
 }
 
+// KnowledgeListItem represents a knowledge entry returned by the list endpoint.
+type KnowledgeListItem struct {
+	ID            string         `json:"id"`
+	UserID        string         `json:"user_id"`
+	Name          string         `json:"name"`
+	Description   string         `json:"description"`
+	CreatedAt     int64          `json:"created_at"`
+	UpdatedAt     int64          `json:"updated_at"`
+	AccessControl map[string]any `json:"access_control,omitempty"`
+	Data          map[string]any `json:"data,omitempty"`
+	Meta          map[string]any `json:"meta,omitempty"`
+}
+
+// ListKnowledge retrieves all knowledge entries visible to the caller.
+func (c *Client) ListKnowledge(ctx context.Context) ([]KnowledgeListItem, error) {
+	var resp []KnowledgeListItem
+	if err := c.do(ctx, http.MethodGet, "knowledge/list", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 // UpdateKnowledge mutates an existing knowledge record.
 func (c *Client) UpdateKnowledge(ctx context.Context, id string, form KnowledgeForm) (*KnowledgeResponse, error) {
 	var resp KnowledgeResponse

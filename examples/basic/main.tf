@@ -2,7 +2,7 @@ terraform {
   required_providers {
     openwebui = {
       source  = "nickcecere/openwebui"
-      version = "~> 0.1"
+      version = "~> 2.0"
     }
   }
 }
@@ -16,28 +16,30 @@ resource "openwebui_knowledge" "support_faq" {
   name        = "Support FAQ"
   description = "Knowledge base backing the support chatbot"
 
-  read_groups = ["Support"]
+  read_groups  = ["Support"]
   write_groups = ["Support"]
-
-  data_json = jsonencode({
-    category = "support"
-  })
 }
 
 resource "openwebui_model" "custom_rag" {
   model_id = "custom-rag"
   name     = "Custom Retrieval Model"
 
-  meta_json = jsonencode({
-    description = "Retriever tuned for internal knowledge base"
-  })
+  description         = "Retriever tuned for internal knowledge base"
+  base_model_id       = "gpt-4o"
+  is_active           = true
+  read_groups         = ["Support"]
+  write_groups        = ["Support"]
+  default_feature_ids = ["web_search"]
 
-  params_json = jsonencode({
-    temperature = 0.1
-  })
+  params = {
+    temperature     = 0.1
+    max_tokens      = 512
+    stream_response = true
+  }
 
-  base_model_id = "gpt-4o"
-  is_active     = true
+  capabilities = {
+    web_search = true
+  }
 }
 
 resource "openwebui_prompt" "triage" {
@@ -60,10 +62,6 @@ resource "openwebui_group" "support" {
     "ebs@ufl.edu",
   ]
 
-  data_json = jsonencode({
-    department = "support"
-  })
-
   permissions = {
     workspace = {
       models    = true
@@ -72,11 +70,22 @@ resource "openwebui_group" "support" {
       tools     = true
     }
 
+    sharing = {
+      public_models = false
+    }
+
     chat = {
-      file_upload = true
-      delete      = true
-      edit        = true
-      temporary   = true
+      file_upload         = true
+      delete              = true
+      edit                = true
+      continue_response   = true
+      regenerate_response = true
+      temporary           = true
+    }
+
+    features = {
+      web_search       = true
+      image_generation = true
     }
   }
 }

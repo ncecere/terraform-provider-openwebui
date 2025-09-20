@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -22,6 +23,17 @@ var _ resource.ResourceWithImportState = &promptResource{}
 // promptResource implements Terraform management for prompts.
 type promptResource struct {
 	client *client.Client
+}
+
+// normalizePromptCommand ensures commands sent to the API always include a single
+// leading slash, while preserving the user-specified value in Terraform state.
+func normalizePromptCommand(command string) string {
+	if command == "" {
+		return command
+	}
+
+	trimmed := strings.TrimPrefix(command, "/")
+	return "/" + trimmed
 }
 
 // promptResourceModel describes Terraform state.
@@ -58,6 +70,10 @@ func (r *promptResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"command": schema.StringAttribute{
 				Required:    true,
 				Description: "Unique command string used to invoke the prompt.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"title": schema.StringAttribute{
 				Required:    true,
@@ -118,8 +134,9 @@ func (r *promptResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	planCommand := plan.Command.ValueString()
 	form := client.PromptForm{
-		Command: plan.Command.ValueString(),
+		Command: normalizePromptCommand(planCommand),
 		Title:   plan.Title.ValueString(),
 		Content: plan.Content.ValueString(),
 	}
@@ -147,8 +164,8 @@ func (r *promptResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	// Ensure command attribute is persisted from plan (API echoes the same value).
-	state.Command = types.StringValue(plan.Command.ValueString())
-	state.ID = types.StringValue(plan.Command.ValueString())
+	state.Command = types.StringValue(planCommand)
+	state.ID = types.StringValue(planCommand)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -195,14 +212,21 @@ func (r *promptResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
+	var state promptResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	var plan promptResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	normalizedCommand := normalizePromptCommand(state.Command.ValueString())
 	form := client.PromptForm{
-		Command: plan.Command.ValueString(),
+		Command: normalizedCommand,
 		Title:   plan.Title.ValueString(),
 		Content: plan.Content.ValueString(),
 	}
@@ -217,7 +241,7 @@ func (r *promptResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	updatedPrompt, err := r.client.UpdatePrompt(ctx, plan.Command.ValueString(), form)
+	updatedPrompt, err := r.client.UpdatePrompt(ctx, state.Command.ValueString(), form)
 	if err != nil {
 		resp.Diagnostics.AddError("Update prompt failed", err.Error())
 		return

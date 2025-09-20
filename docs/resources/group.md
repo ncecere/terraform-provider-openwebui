@@ -22,10 +22,6 @@ resource "openwebui_group" "support" {
     "ebs@ufl.edu",
   ]
 
-  data_json = jsonencode({
-    department = "support"
-  })
-
   permissions = {
     workspace = {
       models    = true
@@ -39,10 +35,17 @@ resource "openwebui_group" "support" {
     }
 
     chat = {
-      file_upload = true
-      delete      = true
-      edit        = true
-      temporary   = true
+      file_upload         = true
+      delete              = true
+      edit                = true
+      continue_response   = true
+      regenerate_response = true
+      temporary           = true
+    }
+
+    features = {
+      web_search       = true
+      image_generation = true
     }
   }
 }
@@ -58,17 +61,14 @@ resource "openwebui_group" "support" {
   * `sharing` – `public_models`, `public_knowledge`, `public_prompts`, `public_tools`
   * `chat` – `controls`, `valves`, `system_prompt`, `params`, `file_upload`, `delete`, `delete_message`, `continue_response`, `regenerate_response`, `rate_response`, `edit`, `share`, `export`, `stt`, `tts`, `call`, `multiple_models`, `temporary`, `temporary_enforced`
   * `features` – `direct_tool_servers`, `web_search`, `image_generation`, `code_interpreter`, `notes`
-* `meta_json` (Optional) – JSON object string for additional metadata stored with the group.
-* `data_json` (Optional) – JSON object string for arbitrary data associated with the group.
 
 ## Attribute Reference
 
 * `id` – Unique group identifier assigned by Open WebUI.
-* `data_json` – JSON metadata returned by the API.
 * `created_at` – Creation date in `YYYY-MM-DD` format.
 * `updated_at` – Last update date in `YYYY-MM-DD` format.
 * `user_id` – Identifier of the user that created the group.
-* `users` – Resolved usernames/email addresses currently associated with the group.
+* `users` – Resolved usernames/email addresses currently associated with the group (sorted by email/username).
 
 ## Import
 

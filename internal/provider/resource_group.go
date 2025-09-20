@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
@@ -36,8 +37,6 @@ type groupResourceModel struct {
 	Description types.String          `tfsdk:"description"`
 	Users       types.List            `tfsdk:"users"`
 	Permissions groupPermissionsModel `tfsdk:"permissions"`
-	MetaJSON    types.String          `tfsdk:"meta_json"`
-	DataJSON    types.String          `tfsdk:"data_json"`
 	UserID      types.String          `tfsdk:"user_id"`
 	CreatedAt   types.String          `tfsdk:"created_at"`
 	UpdatedAt   types.String          `tfsdk:"updated_at"`
@@ -129,18 +128,6 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					},
 				},
 			},
-			"meta_json": schema.StringAttribute{
-				Optional:      true,
-				Computed:      true,
-				Description:   "JSON metadata associated with the group.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"data_json": schema.StringAttribute{
-				Optional:      true,
-				Computed:      true,
-				Description:   "JSON payload containing additional group data for the group.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
 			"user_id": schema.StringAttribute{
 				Computed:    true,
 				Description: "Identifier of the user who owns the group.",
@@ -201,7 +188,8 @@ func (r *groupResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	providedUsers := !plan.Users.IsNull() && !plan.Users.IsUnknown()
 	providedPermissions := permissionsSpecified(plan.Permissions)
-	providedMeta := !plan.MetaJSON.IsNull() && !plan.MetaJSON.IsUnknown()
+	providedMeta := false
+	providedData := false
 
 	usernames := expandStringList(ctx, plan.Users, path.Root("users"), &resp.Diagnostics)
 	resolvedUserIDs := uniqueStrings(resolveUsernamesToIDs(ctx, r.client, usernames, path.Root("users"), &resp.Diagnostics))
@@ -218,14 +206,14 @@ func (r *groupResource) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 
 	updateForm.Permissions = expandPermissions(ctx, plan.Permissions, &resp.Diagnostics)
-	updateForm.Meta = decodeOptionalJSON(plan.MetaJSON, path.Root("meta_json"), &resp.Diagnostics)
-	updateForm.Data = decodeOptionalJSON(plan.DataJSON, path.Root("data_json"), &resp.Diagnostics)
+	updateForm.Meta = nil
+	updateForm.Data = nil
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if providedPermissions || providedMeta {
+	if providedPermissions || providedMeta || providedData {
 		if _, err := r.client.UpdateGroup(ctx, created.ID, updateForm); err != nil {
 			resp.Diagnostics.AddError("Update group failed", err.Error())
 			return
@@ -306,8 +294,8 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	usernames := expandStringList(ctx, plan.Users, path.Root("users"), &resp.Diagnostics)
 	desiredIDs := uniqueStrings(resolveUsernamesToIDs(ctx, r.client, usernames, path.Root("users"), &resp.Diagnostics))
 	form.Permissions = expandPermissions(ctx, plan.Permissions, &resp.Diagnostics)
-	form.Meta = decodeOptionalJSON(plan.MetaJSON, path.Root("meta_json"), &resp.Diagnostics)
-	form.Data = decodeOptionalJSON(plan.DataJSON, path.Root("data_json"), &resp.Diagnostics)
+	form.Meta = nil
+	form.Data = nil
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -380,16 +368,6 @@ func groupResponseToModel(ctx context.Context, apiClient *client.Client, resp *c
 	permissions, permDiags := flattenPermissions(ctx, resp.Permissions)
 	diags.Append(permDiags...)
 
-	meta, err := encodeOptionalJSON(resp.Meta)
-	if err != nil {
-		diags.AddError("Serialize metadata", err.Error())
-	}
-
-	data, err := encodeOptionalJSON(resp.Data)
-	if err != nil {
-		diags.AddError("Serialize data", err.Error())
-	}
-
 	usernames, nameDiags := fetchUsernamesForIDs(ctx, apiClient, resp.UserIDs)
 	diags.Append(nameDiags...)
 
@@ -402,8 +380,6 @@ func groupResponseToModel(ctx context.Context, apiClient *client.Client, resp *c
 		Description: types.StringValue(resp.Description),
 		Users:       usersList,
 		Permissions: permissions,
-		MetaJSON:    meta,
-		DataJSON:    data,
 		UserID:      types.StringValue(resp.UserID),
 		CreatedAt:   formatDateValue(resp.CreatedAt),
 		UpdatedAt:   formatDateValue(resp.UpdatedAt),
@@ -509,6 +485,7 @@ func fetchUsernamesForIDs(ctx context.Context, apiClient *client.Client, ids []s
 		names = append(names, label)
 	}
 
+	sort.Strings(names)
 	return names, diags
 }
 

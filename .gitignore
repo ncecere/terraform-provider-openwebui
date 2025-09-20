@@ -1,1 +1,11 @@
 .gocache
+bin/
+tests/
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+.DS_Store
+tmp/
+dist/
+coverage.out
+.idea/
