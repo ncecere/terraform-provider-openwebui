@@ -1,6 +1,14 @@
+---
+layout: provider
+page_title: "OpenWebUI Provider"
+sidebar_current: docs-openwebui-index
+description: |-
+  Interact with Open WebUI knowledge bases, models, prompts, and groups using Terraform.
+---
+
 # OpenWebUI Provider
 
-The OpenWebUI provider allows you to manage OpenWebUI resources through Terraform. This provider can be used to automate the management of models, knowledge bases, groups and other OpenWebUI resources.
+The OpenWebUI provider lets you manage knowledge bases, models, prompts, and groups through Terraform. It communicates with an Open WebUI deployment via the REST API and requires a bearer token for authentication.
 
 ## Example Usage
 
@@ -8,70 +16,56 @@ The OpenWebUI provider allows you to manage OpenWebUI resources through Terrafor
 terraform {
   required_providers {
     openwebui = {
-      source = "ncecere/openwebui"
+      source  = "nickcecere/openwebui"
+      version = "~> 0.1"
     }
   }
 }
 
 provider "openwebui" {
-  endpoint = "http://your-openwebui-instance"  # Optional: can use OPENWEBUI_ENDPOINT env var
-  token    = "your-api-token"                  # Optional: can use OPENWEBUI_TOKEN env var
+  endpoint = "https://openwebui.example.com/api/v1"
+  token    = var.openwebui_token
 }
 ```
 
 ## Authentication
 
-The provider supports authentication through either provider configuration or environment variables.
+Authentication uses an HTTP bearer token. Supply it either directly with the `token` argument or through the `OPENWEBUI_TOKEN` environment variable.
 
-### Provider Configuration
+## Configuration Reference
 
-```hcl
-provider "openwebui" {
-  endpoint = "http://your-openwebui-instance"
-  token    = "your-api-token"
-}
-```
+The provider supports the following configuration arguments:
 
-### Environment Variables
+* `endpoint` (Optional) – Base URL for your Open WebUI instance (defaults to `http://localhost:3000/api/v1`).
+* `token` (Optional, Sensitive) – API token for authenticating requests. Can also be set via `OPENWEBUI_TOKEN`.
+
+## Environment Variables
+
+* `OPENWEBUI_ENDPOINT` – Overrides the API endpoint.
+* `OPENWEBUI_TOKEN` – Supplies the API token when the provider block omits `token`.
+
+## Available Resources
+
+* [`openwebui_knowledge`](resources/knowledge)
+* [`openwebui_model`](resources/model)
+* [`openwebui_prompt`](resources/prompt)
+* [`openwebui_group`](resources/group)
+
+## Import
+
+All resources expose standard import IDs:
+
+* Knowledge: the knowledge ID string returned by Open WebUI.
+* Model: the API model ID string.
+* Prompt: the prompt command string.
+* Group: the group ID string.
+
+Use the `terraform import` command with the relevant resource type and identifier, for example:
 
 ```bash
-export OPENWEBUI_ENDPOINT="http://your-openwebui-instance"
-export OPENWEBUI_TOKEN="your-api-token"
+terraform import openwebui_group.example 65e5e86e-0e23-4cd8-8eee-447c6923f632
 ```
 
-## Schema
+## Limitations
 
-### Optional
-
-- `endpoint` (String) The URL of your OpenWebUI instance. Can also be set with the `OPENWEBUI_ENDPOINT` environment variable.
-- `token` (String, Sensitive) The API token for authentication. Can also be set with the `OPENWEBUI_TOKEN` environment variable.
-
-Note: While these configuration values are marked as optional in the schema, you must provide them either through provider configuration or environment variables for the provider to function.
-
-## Resources
-
-- [Group](./resources/group.md) - Manage groups in OpenWebUI
-- [Knowledge Base](./resources/knowledge.md) - Manage knowledge bases in OpenWebUI
-- [Model](./resources/model.md) - Manage models in OpenWebUI
-
-## Data Sources
-
-- [Group](./data-sources/group.md) - Query existing groups in OpenWebUI
-- [Knowledge Base](./data-sources/knowledge.md) - Query existing knowledge bases in OpenWebUI
-- [Model](./data-sources/model.md) - Query existing models in OpenWebUI
-- [User](./data-sources/user.md) - Query existing users in OpenWebUI
-
-## Development
-
-The provider is built with a modular architecture:
-
-- Client Layer: Handles API communication and resource-specific operations
-  - Base client interface and types
-  - Resource-specific client implementations (groups, knowledge, models)
-
-- Provider Layer: Implements the Terraform provider interface
-  - Resource implementations
-  - Data source implementations
-  - Provider configuration
-
-This structure allows for easy extension with new resources and features while maintaining clean separation of concerns.
+This provider is experimental. It reflects the REST API behaviour captured in the supplied `openapi.json` and may require adjustments for other Open WebUI versions. Automated acceptance tests are not yet available.

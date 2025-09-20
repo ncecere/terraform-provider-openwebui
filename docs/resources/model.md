@@ -1,127 +1,138 @@
-# Model Resource
+---
+layout: resource
+page_title: "openwebui_model Resource"
+sidebar_current: docs-openwebui-resource-model
+description: |-
+  Manages custom models registered with Open WebUI.
+---
 
-Manages a model in OpenWebUI.
+# openwebui_model (Resource)
+
+Registers and manages models that Open WebUI can serve. The resource mirrors the behaviour of other Open WebUI resources by exposing structured arguments, automatic access control translation, and computed metadata preservation.
 
 ## Example Usage
 
 ```hcl
-resource "openwebui_model" "example" {
-  base_model_id = "gpt-4"
-  name          = "My Custom Model"
+resource "openwebui_model" "volt_answer" {
+  model_id = "volt-answer"
+  name     = "Volt Answer"
+
+  base_model_id = "gpt-oss-20b"
   is_active     = true
 
   params {
-    system           = "You are a helpful assistant"
-    stream_response  = true
-    temperature     = 0.7
+    system          = "You will only say I don't know and you should look it up your self.  be super sassy."
+    stream_response = true
+    temperature     = 0.8
+    max_tokens      = 128
     top_p           = 0.9
-    max_tokens      = 2000
-    seed            = 42
-    frequency_penalty = 1
-    repeat_last_n    = 64
-    num_ctx          = 4096
-    num_batch        = 512
-  }
-
-  meta {
-    description      = "A customized GPT-4 model"
-    profile_image_url = "/static/favicon.png"
-    
-    capabilities {
-      vision    = false
-      usage     = true
-      citations = true
-    }
-
-    tags {
-      name = "production"
+    top_k           = 40
+    num_thread      = 2
+    num_batch       = 512
+    num_ctx         = 2048
+    custom_params = {
+      custom_param_name = "custom_param_value"
     }
   }
 
-  access_control {
-    read {
-      group_ids = ["group1", "group2"]
-      user_ids  = ["user1"]
-    }
-    write {
-      group_ids = ["admin-group"]
-      user_ids  = ["admin-user"]
-    }
+  profile_image_url = "/static/favicon.png"
+  tags              = ["tag1"]
+  suggestion_prompts = [
+    "I'm a promt suggestion",
+  ]
+
+  capabilities {
+    vision           = true
+    file_upload      = true
+    web_search       = true
+    image_generation = true
+    code_interpreter = true
+    citations        = true
   }
+
+  tool_ids            = ["deep_research", "weather"]
+  default_feature_ids = ["web_search", "image_generation", "code_interpreter"]
+
+  read_groups  = ["Knowledge Managers"]
+  write_groups = ["Model Curators"]
 }
 ```
 
+Additional API fields that are not modelled explicitly are preserved and exposed via the computed `*_additional_json` attributes.
+
 ## Argument Reference
 
-* `base_model_id` - (Required) The ID of the base model to use.
-* `name` - (Required) The name of the model.
-* `is_active` - (Optional) Whether the model is active. Defaults to true.
+Top-level arguments:
 
-### Params Configuration
+* `model_id` (Required) – The Open WebUI identifier for the model. This is sent to the API when creating or updating the model.
+* `name` (Required) – Friendly name displayed in Open WebUI.
+* `params` (Required) – Single nested block specifying model parameters. See [Params Block](#params-block) for details.
+* `base_model_id` (Optional) – Identifier of the base model to extend.
+* `is_active` (Optional) – Whether the model should be marked active. Defaults to the value returned by the API when omitted.
+* `profile_image_url`, `description`, `suggestion_prompts`, `tags`, `tool_ids`, `default_feature_ids`, `capabilities` (Optional) – Presentation metadata. See [Metadata Arguments](#metadata-arguments).
+* `read_groups` (Optional) – Group names or IDs granted read access. When populated, the provider resolves names to IDs using the Open WebUI API.
+* `write_groups` (Optional) – Group names or IDs granted write access. Groups listed here automatically receive read access.
+* `params_additional_json` (Optional) – Extra JSON merged into the params payload. This field is also populated automatically when the API returns unsupported keys.
+* `meta_additional_json` (Optional) – Extra JSON merged into the metadata payload. This field is also populated automatically to preserve API-only fields.
 
-The `params` block supports:
+### Params Block
 
-* `system` - (Optional) The system prompt for the model.
-* `stream_response` - (Optional) Whether to stream responses. Defaults to true.
-* `temperature` - (Optional) Sampling temperature. Range: 0.0-1.0.
-* `top_p` - (Optional) Nucleus sampling parameter. Range: 0.0-1.0.
-* `top_k` - (Optional) Top-k sampling parameter.
-* `min_p` - (Optional) Minimum probability threshold.
-* `max_tokens` - (Optional) Maximum number of tokens to generate.
-* `seed` - (Optional) Random seed for reproducibility.
-* `frequency_penalty` - (Optional) Penalty for token frequency.
-* `repeat_last_n` - (Optional) Number of tokens to consider for repetition penalty.
-* `num_ctx` - (Optional) Context window size.
-* `num_batch` - (Optional) Batch size for processing.
-* `num_keep` - (Optional) Number of tokens to keep from the prompt.
+The `params` block mirrors the payload expected by the Open WebUI model API. Every argument is optional unless specifically noted.
 
-### Meta Configuration
+* `system` – System prompt injected ahead of user messages.
+* `stream_response` – Enables incremental streaming of tokens when set to `true`.
+* `stream_delta_chunk_size` – Number of streamed tokens per chunk (defaults to `1`).
+* `function_calling` – Function calling strategy (`native`, `auto`, `none`, etc.).
+* `reasoning_tags` – List of tags that opt the model into reasoning workflows.
+* `seed` – Integer seed that enforces deterministic sampling when supported.
+* `temperature` – Softmax temperature used for sampling (higher = more random).
+* `keep_alive` – Idle duration (for example `5m`) before the model is evicted from memory.
+* `num_gpu` – Number of GPU devices allocated to the model.
+* `num_thread` – CPU thread count used while generating tokens.
+* `num_batch` – Batch size applied during generation.
+* `num_ctx` – Context window size in tokens.
+* `num_keep` – Prefix tokens preserved from repetition penalty trimming.
+* `format` – Response format hint such as `json`.
+* `think` – When `true`, toggles the extended “think” mode used by some models.
+* `use_mlock` – Locks model pages in memory to reduce swapping.
+* `use_mmap` – Reads model weights via memory-mapped files when supported.
+* `repeat_penalty` – Penalty factor applied to repeated tokens.
+* `tfs_z` – Tail-free sampling Z parameter.
+* `repeat_last_n` – Number of most recent tokens considered by the repeat penalty.
+* `mirostat_tau` – Target entropy for the Mirostat sampler.
+* `mirostat_eta` – Learning rate for the Mirostat sampler.
+* `mirostat` – Mirostat mode selector (`0`, `1`, or `2`).
+* `presence_penalty` – Penalty applied for introducing new tokens.
+* `frequency_penalty` – Penalty applied to frequently seen tokens.
+* `min_p` – Minimum probability mass preserved during sampling.
+* `top_p` – Nucleus sampling probability mass cap.
+* `top_k` – Limits sampling pool to the top-k candidates.
+* `max_tokens` – Hard cap on the number of tokens generated per response.
+* `reasoning_effort` – Reasoning workload hint (`low`, `medium`, or `high`).
+* `custom_params` – Arbitrary key/value pairs forwarded verbatim to Open WebUI.
 
-The `meta` block supports:
+### Metadata Arguments
 
-* `description` - (Optional) Description of the model.
-* `profile_image_url` - (Optional) URL for the model's profile image.
-* `capabilities` - (Optional) Model capabilities configuration block.
-* `tags` - (Optional) List of tags associated with the model.
-
-#### Capabilities Configuration
-
-The `capabilities` block supports:
-
-* `vision` - (Optional) Whether the model supports vision tasks.
-* `usage` - (Optional) Whether to track usage statistics.
-* `citations` - (Optional) Whether the model supports citations.
-
-#### Tags Configuration
-
-The `tags` block supports:
-
-* `name` - (Required) Name of the tag.
-
-### Access Control Configuration
-
-The `access_control` block supports:
-
-* `read` - (Optional) Read access configuration block.
-* `write` - (Optional) Write access configuration block.
-
-Both `read` and `write` blocks support:
-
-* `group_ids` - (Optional) List of group IDs with access.
-* `user_ids` - (Optional) List of user IDs with access.
+* `profile_image_url` – Profile image displayed for the model.
+* `description` – Human-readable description.
+* `suggestion_prompts` – Prompt suggestions surfaced to end users when selecting the model.
+* `tags` – Simple list of tag names.
+* `tool_ids` – Tool identifiers made available to this model.
+* `default_feature_ids` – Feature identifiers enabled by default.
+* `capabilities` – Nested block of boolean capability flags with the attributes `vision`, `file_upload`, `web_search`, `image_generation`, `code_interpreter`, `citations`, `status_updates`, and `usage`.
 
 ## Attribute Reference
 
-In addition to all arguments above, the following attributes are exported:
-
-* `id` - The ID of the model.
-* `user_id` - The ID of the user who created the model.
-* `created_at` - Timestamp when the model was created.
-* `updated_at` - Timestamp when the model was last updated.
+* `id` – Open WebUI generated model identifier.
+* `user_id` – Identifier of the user that created the model.
+* `created_at` – Unix timestamp when the model was created.
+* `updated_at` – Unix timestamp for the latest update.
+* `meta_additional_json` / `params_additional_json` – Computed JSON preserving fields returned by the API that are not modelled directly.
 
 ## Import
 
-Models can be imported using their ID:
+Models can be imported using the model `id` returned by Open WebUI:
 
-```shell
-terraform import openwebui_model.example <model_id>
+```bash
+terraform import openwebui_model.custom_rag custom-rag
+```

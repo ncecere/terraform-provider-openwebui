@@ -1,78 +1,60 @@
-# Knowledge Resource
+---
+layout: resource
+page_title: "openwebui_knowledge Resource"
+sidebar_current: docs-openwebui-resource-knowledge
+description: |-
+  Manages knowledge base entries in Open WebUI.
+---
 
-Manages a knowledge base in OpenWebUI. Knowledge bases can be configured with different access controls and custom data.
+# openwebui_knowledge (Resource)
+
+Creates and manages knowledge base entries inside Open WebUI.
 
 ## Example Usage
 
 ```hcl
-# Create a public knowledge base
-resource "openwebui_knowledge" "public_example" {
-  name          = "Public Knowledge Base"
-  description   = "This is a public knowledge base"
-  access_control = "public"
-  
-  data = {
-    source = "terraform"
-    type   = "documentation"
-  }
-}
+resource "openwebui_knowledge" "support_faq" {
+  name        = "Support FAQ"
+  description = "Knowledge base backing the support chatbot"
 
-# Create a private knowledge base
-resource "openwebui_knowledge" "private_example" {
-  name          = "Private Knowledge Base"
-  description   = "This is a private knowledge base"
-  access_control = "private"
-  
-  data = {
-    source = "terraform"
-    type   = "internal"
-  }
+  read_groups = [
+    "Support",
+  ]
+
+  write_groups = [
+    "Support",
+  ]
+
+  data_json = jsonencode({
+    category = "support"
+  })
 }
 ```
 
-## Schema
+If both `read_groups` and `write_groups` are omitted (or empty), the knowledge entry remains public.
 
-### Required
+## Argument Reference
 
-- `name` (String) The name of the knowledge base.
-- `description` (String) A description of the knowledge base.
+* `name` (Required) – Human readable name of the knowledge entry.
+* `description` (Required) – Description shown in Open WebUI.
+* `read_groups` (Optional) – List of group names or IDs granted read access. Leave unset (or empty) for public knowledge.
+* `write_groups` (Optional) – List of group names or IDs granted write access. Groups here automatically receive read access.
+* `data_json` (Optional) – JSON object string for additional metadata sent during create/update.
+* `meta_json` (Optional) – JSON object string persisted in the knowledge entry metadata. The API may enrich this field and it is surfaced in state.
 
-### Optional
+## Attribute Reference
 
-- `data` (Map of String) Additional data associated with the knowledge base. This can be used to store custom metadata.
-- `access_control` (String) Access control setting for the knowledge base. Valid values are:
-  - `"public"` (default) - The knowledge base is publicly accessible
-  - `"private"` - The knowledge base is private and requires authentication
-
-### Read-Only
-
-- `id` (String) The unique identifier of the knowledge base.
-- `last_updated` (String) Timestamp of when the knowledge base was last updated.
+* `id` – Unique knowledge identifier assigned by Open WebUI.
+* `created_at` – Creation date in `YYYY-MM-DD` format.
+* `updated_at` – Last update date in `YYYY-MM-DD` format.
+* `meta_json` – JSON metadata returned by the API.
+* `user_id` – Identifier of the user that owns the knowledge entry.
+* `read_groups` / `write_groups` – Resolved group names currently applied to the entry.
 
 ## Import
 
-Knowledge bases can be imported using their ID:
+Knowledge entries can be imported using the knowledge ID, for example:
 
-```shell
-terraform import openwebui_knowledge.example <knowledge-base-id>
+```bash
+terraform import openwebui_knowledge.support_faq 65e5e86e-0e23-4cd8-8eee-447c6923f632
 ```
-
-## Implementation Details
-
-The knowledge resource is implemented using a modular client architecture:
-
-1. Client Layer (`internal/provider/client/knowledge/`):
-   - Handles API communication
-   - Implements knowledge-specific operations
-   - Manages data serialization/deserialization
-
-2. Resource Layer (`internal/provider/knowledge_resource.go`):
-   - Implements Terraform resource interface
-   - Manages resource lifecycle (CRUD operations)
-   - Handles state management
-
-This modular approach ensures:
-- Clean separation of concerns
-- Easy maintenance and updates
-- Consistent error handling
-- Type safety through strong typing

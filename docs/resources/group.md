@@ -1,40 +1,30 @@
-# Group Resource
+---
+layout: resource
+page_title: "openwebui_group Resource"
+sidebar_current: docs-openwebui-resource-group
+description: |-
+  Manages groups and their permissions in Open WebUI.
+---
 
-Manages a group in OpenWebUI. Groups allow you to organize users and control their access to various features within OpenWebUI through a comprehensive permissions system.
+# openwebui_group (Resource)
+
+Provisions a group and controls its membership and feature permissions.
 
 ## Example Usage
 
-### Basic Group
-
 ```hcl
-resource "openwebui_group" "basic" {
-  name        = "basic-users"
-  description = "Basic user group with limited permissions"
-  user_ids    = ["user1", "user2"]
+resource "openwebui_group" "support" {
+  name        = "Support"
+  description = "Support team access"
 
-  permissions = {
-    workspace = {
-      models    = false
-      knowledge = true
-      prompts   = true
-      tools     = false
-    }
-    chat = {
-      file_upload = true
-      delete      = false
-      edit        = true
-      temporary   = true
-    }
-  }
-}
-```
+  users = [
+    "cj01@ufl.edu",
+    "ebs@ufl.edu",
+  ]
 
-### Admin Group
-
-```hcl
-resource "openwebui_group" "admin" {
-  name        = "administrators"
-  description = "Administrative group with full permissions"
+  data_json = jsonencode({
+    department = "support"
+  })
 
   permissions = {
     workspace = {
@@ -43,6 +33,11 @@ resource "openwebui_group" "admin" {
       prompts   = true
       tools     = true
     }
+
+    sharing = {
+      public_models = false
+    }
+
     chat = {
       file_upload = true
       delete      = true
@@ -53,107 +48,32 @@ resource "openwebui_group" "admin" {
 }
 ```
 
-### Custom Permissions
+## Argument Reference
 
-```hcl
-resource "openwebui_group" "knowledge_managers" {
-  name        = "knowledge-managers"
-  description = "Group for managing knowledge bases"
-
-  permissions = {
-    workspace = {
-      models    = false
-      knowledge = true  # Only knowledge base access
-      prompts   = false
-      tools     = false
-    }
-    chat = {
-      file_upload = true
-      delete      = true
-      edit        = true
-      temporary   = false
-    }
-  }
-}
-```
-
-## Schema
-
-### Required
-
-- `name` (String) The name of the group.
-- `permissions` (Block) Group permissions configuration. Must include both `workspace` and `chat` blocks.
-
-### Optional
-
-- `description` (String) A description of the group.
-- `user_ids` (List of String) List of user IDs to include in the group.
-
-### Permissions Configuration
-
-The `permissions` block consists of two required nested blocks:
-
-#### Workspace Permissions (`workspace` Block)
-
-Controls access to different workspace features:
-
-- `models` (Bool, Required) - When true, allows access to:
-  - View and select models
-  - Modify model parameters
-  - Create custom models
-
-- `knowledge` (Bool, Required) - When true, allows access to:
-  - View knowledge bases
-  - Create and modify knowledge bases
-  - Upload documents
-
-- `prompts` (Bool, Required) - When true, allows access to:
-  - View saved prompts
-  - Create and modify prompts
-  - Share prompts with others
-
-- `tools` (Bool, Required) - When true, allows access to:
-  - View available tools
-  - Configure tool settings
-  - Create custom tools
-
-#### Chat Permissions (`chat` Block)
-
-Controls chat-related features:
-
-- `file_upload` (Bool, Required) - When true, allows:
-  - Uploading files in chat
-  - Sharing files with others
-
-- `delete` (Bool, Required) - When true, allows:
-  - Deleting chat messages
-  - Clearing chat history
-
-- `edit` (Bool, Required) - When true, allows:
-  - Editing sent messages
-  - Modifying chat settings
-
-- `temporary` (Bool, Required) - When true, allows:
-  - Creating temporary chats
-  - Using ephemeral messages
+* `name` (Required) – Group name.
+* `description` (Required) – Description visible within Open WebUI.
+* `users` (Optional) – List of usernames or email addresses. The provider resolves them to the required user IDs automatically when creating or updating the group.
+* `permissions` (Optional) – Nested block defining category-specific permissions. Each map only accepts recognised keys:
+  * `workspace` – `models`, `knowledge`, `prompts`, `tools`
+  * `sharing` – `public_models`, `public_knowledge`, `public_prompts`, `public_tools`
+  * `chat` – `controls`, `valves`, `system_prompt`, `params`, `file_upload`, `delete`, `delete_message`, `continue_response`, `regenerate_response`, `rate_response`, `edit`, `share`, `export`, `stt`, `tts`, `call`, `multiple_models`, `temporary`, `temporary_enforced`
+  * `features` – `direct_tool_servers`, `web_search`, `image_generation`, `code_interpreter`, `notes`
+* `meta_json` (Optional) – JSON object string for additional metadata stored with the group.
+* `data_json` (Optional) – JSON object string for arbitrary data associated with the group.
 
 ## Attribute Reference
 
-In addition to all arguments above, the following attributes are exported:
-
-- `id` (String) The unique identifier of the group.
+* `id` – Unique group identifier assigned by Open WebUI.
+* `data_json` – JSON metadata returned by the API.
+* `created_at` – Creation date in `YYYY-MM-DD` format.
+* `updated_at` – Last update date in `YYYY-MM-DD` format.
+* `user_id` – Identifier of the user that created the group.
+* `users` – Resolved usernames/email addresses currently associated with the group.
 
 ## Import
 
-Groups can be imported using their ID:
+Groups can be imported using the group ID:
 
 ```bash
-terraform import openwebui_group.example <group-id>
+terraform import openwebui_group.support 65e5e86e-0e23-4cd8-8eee-447c6923f632
 ```
-
-## Implementation Notes
-
-- Groups are created with basic information first, then updated with full permissions and user assignments
-- Changes to permissions take effect immediately for all group members
-- Removing a user from a group immediately revokes their group-based permissions
-- Group names must be unique within an OpenWebUI instance
