@@ -18,8 +18,8 @@ resource "openwebui_group" "support" {
   description = "Support team access"
 
   users = [
-    "cj01@ufl.edu",
-    "ebs@ufl.edu",
+    "jim@school.edu",
+    "bob@school.edu",
   ]
 
   permissions = {

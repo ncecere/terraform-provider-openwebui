@@ -141,8 +141,8 @@ resource "openwebui_group" "example" {
   description = "Support team access"
 
   users = [
-    "cj01@ufl.edu",
-    "ebs@ufl.edu",
+    "jim@school.edu",
+    "john@school.edu",
   ]
   permissions = {
     workspace = {
