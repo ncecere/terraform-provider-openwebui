@@ -313,23 +313,10 @@ func knowledgeResponseToModel(ctx context.Context, apiClient *client.Client, res
 	readNames := readIDs
 	writeNames := writeIDs
 
-	readList := types.ListNull(types.StringType)
-	if len(readNames) > 0 {
-		l, listDiags := types.ListValueFrom(ctx, types.StringType, readNames)
-		diags.Append(listDiags...)
-		if !listDiags.HasError() {
-			readList = l
-		}
-	}
-
-	writeList := types.ListNull(types.StringType)
-	if len(writeNames) > 0 {
-		l, listDiags := types.ListValueFrom(ctx, types.StringType, writeNames)
-		diags.Append(listDiags...)
-		if !listDiags.HasError() {
-			writeList = l
-		}
-	}
+	readList, readListDiags := flattenStringSlice(ctx, readNames)
+	diags.Append(readListDiags...)
+	writeList, writeListDiags := flattenStringSlice(ctx, writeNames)
+	diags.Append(writeListDiags...)
 
 	model := knowledgeResourceModel{
 		ID:          types.StringValue(resp.ID),

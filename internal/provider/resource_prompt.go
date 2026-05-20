@@ -157,10 +157,12 @@ func (r *promptResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	if created.ID != "" {
-		if _, err := r.client.UpdatePromptAccess(ctx, created.ID, client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		updatedGrants, err := r.client.UpdatePromptAccess(ctx, created.ID, client.BuildGroupGrants(readIDs, writeIDs))
+		if err != nil {
 			resp.Diagnostics.AddError("Set prompt access failed", err.Error())
 			return
 		}
+		created.AccessGrants = updatedGrants
 	}
 
 	state, diags := promptResponseToModel(ctx, r.client, created)
@@ -253,10 +255,12 @@ func (r *promptResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	if updatedPrompt.ID != "" {
-		if _, err := r.client.UpdatePromptAccess(ctx, updatedPrompt.ID, client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		updatedGrants, err := r.client.UpdatePromptAccess(ctx, updatedPrompt.ID, client.BuildGroupGrants(readIDs, writeIDs))
+		if err != nil {
 			resp.Diagnostics.AddError("Set prompt access failed", err.Error())
 			return
 		}
+		updatedPrompt.AccessGrants = updatedGrants
 	}
 
 	state, diags := promptResponseToModel(ctx, r.client, updatedPrompt)
@@ -310,23 +314,10 @@ func promptResponseToModel(ctx context.Context, apiClient *client.Client, resp *
 	readNames := readIDs
 	writeNames := writeIDs
 
-	readList := types.ListNull(types.StringType)
-	if len(readNames) > 0 {
-		l, listDiags := types.ListValueFrom(ctx, types.StringType, readNames)
-		diags.Append(listDiags...)
-		if !listDiags.HasError() {
-			readList = l
-		}
-	}
-
-	writeList := types.ListNull(types.StringType)
-	if len(writeNames) > 0 {
-		l, listDiags := types.ListValueFrom(ctx, types.StringType, writeNames)
-		diags.Append(listDiags...)
-		if !listDiags.HasError() {
-			writeList = l
-		}
-	}
+	readList, readListDiags := flattenStringSlice(ctx, readNames)
+	diags.Append(readListDiags...)
+	writeList, writeListDiags := flattenStringSlice(ctx, writeNames)
+	diags.Append(writeListDiags...)
 
 	state := promptResourceModel{
 		ID:          types.StringValue(resp.Command),

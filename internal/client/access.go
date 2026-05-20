@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 )
 
 // AccessGrant represents a single access grant returned by the API.
@@ -25,28 +26,32 @@ func BuildGroupGrants(readIDs, writeIDs []string) []AccessGrant {
 		return []AccessGrant{}
 	}
 
-	writeSet := make(map[string]struct{}, len(writeIDs))
-	for _, id := range writeIDs {
-		writeSet[id] = struct{}{}
+	dedupe := func(ids []string) []string {
+		seen := make(map[string]struct{}, len(ids))
+		out := make([]string, 0, len(ids))
+		for _, id := range ids {
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			out = append(out, id)
+		}
+		sort.Strings(out)
+		return out
 	}
 
-	readSet := make(map[string]struct{}, len(readIDs)+len(writeIDs))
-	for _, id := range readIDs {
-		readSet[id] = struct{}{}
-	}
-	for _, id := range writeIDs {
-		readSet[id] = struct{}{}
-	}
+	writeOrdered := dedupe(writeIDs)
+	readOrdered := dedupe(append(append([]string{}, readIDs...), writeIDs...))
 
-	grants := make([]AccessGrant, 0, len(readSet)+len(writeSet))
-	for id := range readSet {
+	grants := make([]AccessGrant, 0, len(readOrdered)+len(writeOrdered))
+	for _, id := range readOrdered {
 		grants = append(grants, AccessGrant{
 			PrincipalType: "group",
 			PrincipalID:   id,
 			Permission:    "read",
 		})
 	}
-	for id := range writeSet {
+	for _, id := range writeOrdered {
 		grants = append(grants, AccessGrant{
 			PrincipalType: "group",
 			PrincipalID:   id,
