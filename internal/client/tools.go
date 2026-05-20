@@ -19,6 +19,7 @@ type ToolForm struct {
 	Content       string         `json:"content"`
 	Meta          ToolMeta       `json:"meta"`
 	AccessControl map[string]any `json:"access_control,omitempty"`
+	AccessGrants  []AccessGrant  `json:"access_grants,omitempty"`
 }
 
 // ToolResponse captures basic tool details.
@@ -28,6 +29,7 @@ type ToolResponse struct {
 	Name          string         `json:"name"`
 	Meta          ToolMeta       `json:"meta"`
 	AccessControl map[string]any `json:"access_control,omitempty"`
+	AccessGrants  []AccessGrant  `json:"access_grants,omitempty"`
 	UpdatedAt     int64          `json:"updated_at"`
 	CreatedAt     int64          `json:"created_at"`
 }
@@ -41,6 +43,7 @@ type ToolModel struct {
 	Specs         []map[string]any `json:"specs"`
 	Meta          ToolMeta         `json:"meta"`
 	AccessControl map[string]any   `json:"access_control,omitempty"`
+	AccessGrants  []AccessGrant    `json:"access_grants,omitempty"`
 	UpdatedAt     int64            `json:"updated_at"`
 	CreatedAt     int64            `json:"created_at"`
 }
@@ -52,6 +55,7 @@ type ToolAccessResponse struct {
 	Name          string         `json:"name"`
 	Meta          ToolMeta       `json:"meta"`
 	AccessControl map[string]any `json:"access_control,omitempty"`
+	AccessGrants  []AccessGrant  `json:"access_grants,omitempty"`
 	UpdatedAt     int64          `json:"updated_at"`
 	CreatedAt     int64          `json:"created_at"`
 	User          *User          `json:"user,omitempty"`
@@ -65,6 +69,7 @@ type ToolUserResponse struct {
 	Name          string         `json:"name"`
 	Meta          ToolMeta       `json:"meta"`
 	AccessControl map[string]any `json:"access_control,omitempty"`
+	AccessGrants  []AccessGrant  `json:"access_grants,omitempty"`
 	UpdatedAt     int64          `json:"updated_at"`
 	CreatedAt     int64          `json:"created_at"`
 	User          *User          `json:"user,omitempty"`

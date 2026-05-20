@@ -113,6 +113,11 @@ func fetchGroupNamesForIDs(ctx context.Context, apiClient *client.Client, ids []
 	return uniqueStrings(names), diags
 }
 
+// extractGroupIDsFromGrants returns unique group IDs holding the named permission.
+func extractGroupIDsFromGrants(grants []client.AccessGrant, permission string) []string {
+	return client.ExtractGroupIDs(grants, permission)
+}
+
 func buildAccessControl(readIDs, writeIDs []string) map[string]any {
 	if len(readIDs) == 0 && len(writeIDs) == 0 {
 		return nil

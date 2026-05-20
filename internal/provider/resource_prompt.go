@@ -146,7 +146,6 @@ func (r *promptResource) Create(ctx context.Context, req resource.CreateRequest,
 	readIDs := resolveGroupNamesToIDs(ctx, r.client, readNames, path.Root("read_groups"), &resp.Diagnostics)
 	writeIDs := resolveGroupNamesToIDs(ctx, r.client, writeNames, path.Root("write_groups"), &resp.Diagnostics)
 
-	form.AccessControl = buildAccessControl(readIDs, writeIDs)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -155,6 +154,13 @@ func (r *promptResource) Create(ctx context.Context, req resource.CreateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError("Create prompt failed", err.Error())
 		return
+	}
+
+	if created.ID != "" {
+		if _, err := r.client.UpdatePromptAccess(ctx, created.ID, client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+			resp.Diagnostics.AddError("Set prompt access failed", err.Error())
+			return
+		}
 	}
 
 	state, diags := promptResponseToModel(ctx, r.client, created)
@@ -236,7 +242,6 @@ func (r *promptResource) Update(ctx context.Context, req resource.UpdateRequest,
 	readIDs := resolveGroupNamesToIDs(ctx, r.client, readNames, path.Root("read_groups"), &resp.Diagnostics)
 	writeIDs := resolveGroupNamesToIDs(ctx, r.client, writeNames, path.Root("write_groups"), &resp.Diagnostics)
 
-	form.AccessControl = buildAccessControl(readIDs, writeIDs)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -245,6 +250,13 @@ func (r *promptResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError("Update prompt failed", err.Error())
 		return
+	}
+
+	if updatedPrompt.ID != "" {
+		if _, err := r.client.UpdatePromptAccess(ctx, updatedPrompt.ID, client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+			resp.Diagnostics.AddError("Set prompt access failed", err.Error())
+			return
+		}
 	}
 
 	state, diags := promptResponseToModel(ctx, r.client, updatedPrompt)
@@ -292,13 +304,11 @@ func (r *promptResource) ImportState(ctx context.Context, req resource.ImportSta
 func promptResponseToModel(ctx context.Context, apiClient *client.Client, resp *client.PromptModel) (promptResourceModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	readIDs := extractGroupIDsFromAccessControl(resp.AccessControl, "read")
-	writeIDs := extractGroupIDsFromAccessControl(resp.AccessControl, "write")
+	readIDs := extractGroupIDsFromGrants(resp.AccessGrants, "read")
+	writeIDs := extractGroupIDsFromGrants(resp.AccessGrants, "write")
 
-	readNames, readDiags := fetchGroupNamesForIDs(ctx, apiClient, readIDs)
-	diags.Append(readDiags...)
-	writeNames, writeDiags := fetchGroupNamesForIDs(ctx, apiClient, writeIDs)
-	diags.Append(writeDiags...)
+	readNames := readIDs
+	writeNames := writeIDs
 
 	readList := types.ListNull(types.StringType)
 	if len(readNames) > 0 {

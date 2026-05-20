@@ -155,7 +155,7 @@ func (r *toolResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	form, diags := toolFormFromPlan(ctx, r.client, plan)
+	form, readIDs, writeIDs, diags := toolFormFromPlan(ctx, r.client, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -164,6 +164,11 @@ func (r *toolResource) Create(ctx context.Context, req resource.CreateRequest, r
 	created, err := r.client.CreateTool(ctx, form)
 	if err != nil {
 		resp.Diagnostics.AddError("Create tool failed", err.Error())
+		return
+	}
+
+	if _, err := r.client.UpdateToolAccess(ctx, created.ID, client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		resp.Diagnostics.AddError("Set tool access failed", err.Error())
 		return
 	}
 
@@ -234,7 +239,7 @@ func (r *toolResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	form, diags := toolFormFromPlan(ctx, r.client, plan)
+	form, readIDs, writeIDs, diags := toolFormFromPlan(ctx, r.client, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -246,15 +251,19 @@ func (r *toolResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	access := &client.ToolAccessResponse{
-		ID:            updated.ID,
-		UserID:        updated.UserID,
-		Name:          updated.Name,
-		Meta:          updated.Meta,
-		AccessControl: updated.AccessControl,
-		UpdatedAt:     updated.UpdatedAt,
-		CreatedAt:     updated.CreatedAt,
+	if _, err := r.client.UpdateToolAccess(ctx, plan.ID.ValueString(), client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		resp.Diagnostics.AddError("Set tool access failed", err.Error())
+		return
 	}
+
+	refreshed, err := r.client.GetTool(ctx, plan.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Read tool failed", err.Error())
+		return
+	}
+
+	access := refreshed
+	updated.AccessGrants = refreshed.AccessGrants
 
 	state, stateDiags := toolResponseToModel(ctx, r.client, access, updated.Content, updated.Specs, plan.Content)
 	resp.Diagnostics.Append(stateDiags...)
@@ -294,7 +303,7 @@ func (r *toolResource) ImportState(ctx context.Context, req resource.ImportState
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("tool_id"), req.ID)...)
 }
 
-func toolFormFromPlan(ctx context.Context, apiClient *client.Client, plan toolResourceModel) (client.ToolForm, diag.Diagnostics) {
+func toolFormFromPlan(ctx context.Context, apiClient *client.Client, plan toolResourceModel) (client.ToolForm, []string, []string, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	manifest := decodeOptionalJSON(plan.ManifestJSON, path.Root("manifest_json"), &diags)
@@ -316,12 +325,11 @@ func toolFormFromPlan(ctx context.Context, apiClient *client.Client, plan toolRe
 	writeIDs := resolveGroupNamesToIDs(ctx, apiClient, writeNames, path.Root("write_groups"), &diags)
 
 	return client.ToolForm{
-		ID:            plan.ToolID.ValueString(),
-		Name:          plan.Name.ValueString(),
-		Content:       plan.Content.ValueString(),
-		Meta:          meta,
-		AccessControl: buildAccessControl(readIDs, writeIDs),
-	}, diags
+		ID:      plan.ToolID.ValueString(),
+		Name:    plan.Name.ValueString(),
+		Content: plan.Content.ValueString(),
+		Meta:    meta,
+	}, readIDs, writeIDs, diags
 }
 
 func fetchToolContent(ctx context.Context, apiClient *client.Client, toolID string) (string, []map[string]any, diag.Diagnostics) {
@@ -350,13 +358,11 @@ func toolResponseToModel(ctx context.Context, apiClient *client.Client, access *
 		return toolResourceModel{}, diags
 	}
 
-	readIDs := extractGroupIDsFromAccessControl(access.AccessControl, "read")
-	writeIDs := extractGroupIDsFromAccessControl(access.AccessControl, "write")
+	readIDs := extractGroupIDsFromGrants(access.AccessGrants, "read")
+	writeIDs := extractGroupIDsFromGrants(access.AccessGrants, "write")
 
-	readNames, readDiags := fetchGroupNamesForIDs(ctx, apiClient, readIDs)
-	diags.Append(readDiags...)
-	writeNames, writeDiags := fetchGroupNamesForIDs(ctx, apiClient, writeIDs)
-	diags.Append(writeDiags...)
+	readNames := readIDs
+	writeNames := writeIDs
 
 	readList, readListDiags := flattenStringSlice(ctx, readNames)
 	diags.Append(readListDiags...)

@@ -156,9 +156,8 @@ func (r *modelResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"updated_at": schema.Int64Attribute{
-				Computed:      true,
-				Description:   "Unix timestamp indicating the last update time.",
-				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				Computed:    true,
+				Description: "Unix timestamp indicating the last update time.",
 			},
 			"meta_additional_json": schema.StringAttribute{
 				Optional:      true,
@@ -379,7 +378,6 @@ func (r *modelResource) Create(ctx context.Context, req resource.CreateRequest, 
 	writeNames := expandStringList(ctx, plan.WriteGroups, path.Root("write_groups"), &resp.Diagnostics)
 	readIDs := resolveGroupNamesToIDs(ctx, r.client, readNames, path.Root("read_groups"), &resp.Diagnostics)
 	writeIDs := resolveGroupNamesToIDs(ctx, r.client, writeNames, path.Root("write_groups"), &resp.Diagnostics)
-	form.AccessControl = buildAccessControl(readIDs, writeIDs)
 
 	if !plan.BaseModelID.IsNull() && !plan.BaseModelID.IsUnknown() && plan.BaseModelID.ValueString() != "" {
 		base := plan.BaseModelID.ValueString()
@@ -401,7 +399,18 @@ func (r *modelResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	state, diags := modelResponseToModel(ctx, r.client, created, plan.ModelID.ValueString())
+	if _, err := r.client.UpdateModelAccess(ctx, created.ID, client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		resp.Diagnostics.AddError("Set model access failed", err.Error())
+		return
+	}
+
+	refreshed, err := r.client.GetModel(ctx, created.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Read model failed", err.Error())
+		return
+	}
+
+	state, diags := modelResponseToModel(ctx, r.client, refreshed, plan.ModelID.ValueString())
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -489,7 +498,6 @@ func (r *modelResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	writeNames := expandStringList(ctx, plan.WriteGroups, path.Root("write_groups"), &resp.Diagnostics)
 	readIDs := resolveGroupNamesToIDs(ctx, r.client, readNames, path.Root("read_groups"), &resp.Diagnostics)
 	writeIDs := resolveGroupNamesToIDs(ctx, r.client, writeNames, path.Root("write_groups"), &resp.Diagnostics)
-	form.AccessControl = buildAccessControl(readIDs, writeIDs)
 
 	if !plan.BaseModelID.IsNull() && !plan.BaseModelID.IsUnknown() && plan.BaseModelID.ValueString() != "" {
 		base := plan.BaseModelID.ValueString()
@@ -508,6 +516,11 @@ func (r *modelResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	_, err := r.client.UpdateModel(ctx, plan.ID.ValueString(), form)
 	if err != nil {
 		resp.Diagnostics.AddError("Update model failed", err.Error())
+		return
+	}
+
+	if _, err := r.client.UpdateModelAccess(ctx, plan.ID.ValueString(), client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		resp.Diagnostics.AddError("Set model access failed", err.Error())
 		return
 	}
 
@@ -564,13 +577,11 @@ func modelResponseToModel(ctx context.Context, apiClient *client.Client, resp *c
 	metaState, metaAdditional, metaDiags := flattenModelMeta(ctx, resp.Meta)
 	diags.Append(metaDiags...)
 
-	readIDs := extractGroupIDsFromAccessControl(resp.AccessControl, "read")
-	writeIDs := extractGroupIDsFromAccessControl(resp.AccessControl, "write")
+	readIDs := extractGroupIDsFromGrants(resp.AccessGrants, "read")
+	writeIDs := extractGroupIDsFromGrants(resp.AccessGrants, "write")
 
-	readNames, readDiags := fetchGroupNamesForIDs(ctx, apiClient, readIDs)
-	diags.Append(readDiags...)
-	writeNames, writeDiags := fetchGroupNamesForIDs(ctx, apiClient, writeIDs)
-	diags.Append(writeDiags...)
+	readNames := readIDs
+	writeNames := writeIDs
 
 	readList, readListDiags := flattenStringSlice(ctx, readNames)
 	diags.Append(readListDiags...)

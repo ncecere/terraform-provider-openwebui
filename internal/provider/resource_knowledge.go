@@ -143,7 +143,6 @@ func (r *knowledgeResource) Create(ctx context.Context, req resource.CreateReque
 	readIDs := resolveGroupNamesToIDs(ctx, r.client, readNames, path.Root("read_groups"), &resp.Diagnostics)
 	writeIDs := resolveGroupNamesToIDs(ctx, r.client, writeNames, path.Root("write_groups"), &resp.Diagnostics)
 
-	form.AccessControl = buildAccessControl(readIDs, writeIDs)
 	form.Data = decodeOptionalJSON(plan.DataJSON, path.Root("data_json"), &resp.Diagnostics)
 	form.Meta = decodeOptionalJSON(plan.MetaJSON, path.Root("meta_json"), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
@@ -153,6 +152,11 @@ func (r *knowledgeResource) Create(ctx context.Context, req resource.CreateReque
 	created, err := r.client.CreateKnowledge(ctx, form)
 	if err != nil {
 		resp.Diagnostics.AddError("Create knowledge entry failed", err.Error())
+		return
+	}
+
+	if _, err := r.client.UpdateKnowledgeAccess(ctx, created.ID, client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		resp.Diagnostics.AddError("Set knowledge access failed", err.Error())
 		return
 	}
 
@@ -228,7 +232,6 @@ func (r *knowledgeResource) Update(ctx context.Context, req resource.UpdateReque
 	readIDs := resolveGroupNamesToIDs(ctx, r.client, readNames, path.Root("read_groups"), &resp.Diagnostics)
 	writeIDs := resolveGroupNamesToIDs(ctx, r.client, writeNames, path.Root("write_groups"), &resp.Diagnostics)
 
-	form.AccessControl = buildAccessControl(readIDs, writeIDs)
 	form.Data = decodeOptionalJSON(plan.DataJSON, path.Root("data_json"), &resp.Diagnostics)
 	form.Meta = decodeOptionalJSON(plan.MetaJSON, path.Root("meta_json"), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
@@ -238,6 +241,11 @@ func (r *knowledgeResource) Update(ctx context.Context, req resource.UpdateReque
 	_, err := r.client.UpdateKnowledge(ctx, plan.ID.ValueString(), form)
 	if err != nil {
 		resp.Diagnostics.AddError("Update knowledge entry failed", err.Error())
+		return
+	}
+
+	if _, err := r.client.UpdateKnowledgeAccess(ctx, plan.ID.ValueString(), client.BuildGroupGrants(readIDs, writeIDs)); err != nil {
+		resp.Diagnostics.AddError("Set knowledge access failed", err.Error())
 		return
 	}
 
@@ -299,13 +307,11 @@ func knowledgeResponseToModel(ctx context.Context, apiClient *client.Client, res
 		diags.AddError("Serialize metadata", err.Error())
 	}
 
-	readIDs := extractGroupIDsFromAccessControl(resp.AccessControl, "read")
-	writeIDs := extractGroupIDsFromAccessControl(resp.AccessControl, "write")
+	readIDs := extractGroupIDsFromGrants(resp.AccessGrants, "read")
+	writeIDs := extractGroupIDsFromGrants(resp.AccessGrants, "write")
 
-	readNames, readDiags := fetchGroupNamesForIDs(ctx, apiClient, readIDs)
-	diags.Append(readDiags...)
-	writeNames, writeDiags := fetchGroupNamesForIDs(ctx, apiClient, writeIDs)
-	diags.Append(writeDiags...)
+	readNames := readIDs
+	writeNames := writeIDs
 
 	readList := types.ListNull(types.StringType)
 	if len(readNames) > 0 {

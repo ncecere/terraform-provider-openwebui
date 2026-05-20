@@ -27,6 +27,7 @@ type ModelResponse struct {
 	BaseModelID   *string        `json:"base_model_id,omitempty"`
 	IsActive      bool           `json:"is_active"`
 	AccessControl map[string]any `json:"access_control,omitempty"`
+	AccessGrants  []AccessGrant  `json:"access_grants,omitempty"`
 	CreatedAt     int64          `json:"created_at"`
 	UpdatedAt     int64          `json:"updated_at"`
 }
@@ -66,5 +67,6 @@ func (c *Client) UpdateModel(ctx context.Context, id string, form ModelForm) (*M
 // DeleteModel removes a model by identifier.
 func (c *Client) DeleteModel(ctx context.Context, id string) error {
 	query := url.Values{"id": []string{id}}
-	return c.do(ctx, http.MethodPost, "models/model/delete", query, nil, nil)
+	body := map[string]string{"id": id}
+	return c.do(ctx, http.MethodPost, "models/model/delete", query, body, nil)
 }

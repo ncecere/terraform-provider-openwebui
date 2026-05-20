@@ -30,8 +30,8 @@ func expandStringList(ctx context.Context, value types.List, attribute path.Path
 
 // flattenStringSlice converts a slice of strings into a Terraform List value.
 func flattenStringSlice(ctx context.Context, values []string) (types.List, diag.Diagnostics) {
-	if len(values) == 0 {
-		return types.ListNull(types.StringType), nil
+	if values == nil {
+		values = []string{}
 	}
 
 	list, diags := types.ListValueFrom(ctx, types.StringType, values)
