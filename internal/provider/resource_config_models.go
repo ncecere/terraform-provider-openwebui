@@ -189,6 +189,9 @@ func applyModelsConfig(ctx context.Context, apiClient *client.Client, plan model
 
 	order, listDiags := flattenStringSlice(ctx, updated.ModelOrderList)
 	diags.Append(listDiags...)
+	if len(updated.ModelOrderList) == 0 && !plan.ModelOrderList.IsNull() && !plan.ModelOrderList.IsUnknown() {
+		order = plan.ModelOrderList
+	}
 
 	state := modelsConfigModel{
 		ID:                  types.StringValue("models"),

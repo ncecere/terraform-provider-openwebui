@@ -40,6 +40,26 @@ type ToolServersConfigForm struct {
 	Connections []ToolServerConnection `json:"TOOL_SERVER_CONNECTIONS"`
 }
 
+// TerminalServerConnection captures a terminal server connection entry.
+type TerminalServerConnection struct {
+	ID         *string        `json:"id,omitempty"`
+	Name       *string        `json:"name,omitempty"`
+	Enabled    *bool          `json:"enabled,omitempty"`
+	URL        string         `json:"url"`
+	Path       *string        `json:"path,omitempty"`
+	Key        *string        `json:"key,omitempty"`
+	AuthType   *string        `json:"auth_type,omitempty"`
+	Config     map[string]any `json:"config,omitempty"`
+	ServerType *string        `json:"server_type,omitempty"`
+	PolicyID   *string        `json:"policy_id,omitempty"`
+	Policy     map[string]any `json:"policy,omitempty"`
+}
+
+// TerminalServersConfigForm captures terminal server configuration.
+type TerminalServersConfigForm struct {
+	Connections []TerminalServerConnection `json:"TERMINAL_SERVER_CONNECTIONS"`
+}
+
 // CodeInterpreterConfigForm captures code execution configuration.
 type CodeInterpreterConfigForm struct {
 	EnableCodeExecution                bool    `json:"ENABLE_CODE_EXECUTION"`
@@ -130,6 +150,35 @@ func (c *Client) SetToolServersConfig(ctx context.Context, form ToolServersConfi
 	}
 
 	return &resp, nil
+}
+
+// GetTerminalServersConfig retrieves terminal server configuration.
+func (c *Client) GetTerminalServersConfig(ctx context.Context) (*TerminalServersConfigForm, error) {
+	var resp TerminalServersConfigForm
+	if err := c.do(ctx, http.MethodGet, "configs/terminal_servers", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// SetTerminalServersConfig updates terminal server configuration.
+func (c *Client) SetTerminalServersConfig(ctx context.Context, form TerminalServersConfigForm) (*TerminalServersConfigForm, error) {
+	var resp TerminalServersConfigForm
+	if err := c.do(ctx, http.MethodPost, "configs/terminal_servers", nil, form, &resp); err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// VerifyTerminalServer verifies terminal server connectivity.
+func (c *Client) VerifyTerminalServer(ctx context.Context, connection TerminalServerConnection) error {
+	if err := c.do(ctx, http.MethodPost, "configs/terminal_servers/verify", nil, connection, nil); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetCodeExecutionConfig retrieves code execution configuration.
@@ -248,4 +297,58 @@ func (c *Client) VerifyToolServer(ctx context.Context, connection ToolServerConn
 	}
 
 	return nil
+}
+
+// GetRetrievalConfig retrieves raw retrieval configuration.
+func (c *Client) GetRetrievalConfig(ctx context.Context) (map[string]any, error) {
+	var resp map[string]any
+	if err := c.do(ctx, http.MethodGet, "retrieval/config", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// SetRetrievalConfig updates raw retrieval configuration.
+func (c *Client) SetRetrievalConfig(ctx context.Context, config map[string]any) (map[string]any, error) {
+	var resp map[string]any
+	if err := c.do(ctx, http.MethodPost, "retrieval/config/update", nil, config, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// GetEvaluationsConfig retrieves raw evaluations configuration.
+func (c *Client) GetEvaluationsConfig(ctx context.Context) (map[string]any, error) {
+	var resp map[string]any
+	if err := c.do(ctx, http.MethodGet, "evaluations/config", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// SetEvaluationsConfig updates raw evaluations configuration.
+func (c *Client) SetEvaluationsConfig(ctx context.Context, config map[string]any) (map[string]any, error) {
+	var resp map[string]any
+	if err := c.do(ctx, http.MethodPost, "evaluations/config", nil, config, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// GetDefaultUserPermissions retrieves raw default user permissions.
+func (c *Client) GetDefaultUserPermissions(ctx context.Context) (map[string]any, error) {
+	var resp map[string]any
+	if err := c.do(ctx, http.MethodGet, "users/default/permissions", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// SetDefaultUserPermissions updates raw default user permissions.
+func (c *Client) SetDefaultUserPermissions(ctx context.Context, config map[string]any) (map[string]any, error) {
+	var resp map[string]any
+	if err := c.do(ctx, http.MethodPost, "users/default/permissions", nil, config, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

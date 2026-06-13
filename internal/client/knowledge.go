@@ -7,6 +7,23 @@ import (
 	"net/url"
 )
 
+// KnowledgeDirectoryForm models create/update payloads for knowledge directories.
+type KnowledgeDirectoryForm struct {
+	Name     *string `json:"name,omitempty"`
+	ParentID *string `json:"parent_id,omitempty"`
+}
+
+// KnowledgeDirectoryModel captures a knowledge directory.
+type KnowledgeDirectoryModel struct {
+	ID          string  `json:"id"`
+	KnowledgeID string  `json:"knowledge_id"`
+	ParentID    *string `json:"parent_id"`
+	Name        string  `json:"name"`
+	UserID      string  `json:"user_id"`
+	CreatedAt   int64   `json:"created_at"`
+	UpdatedAt   int64   `json:"updated_at"`
+}
+
 // KnowledgeForm models the payload for creating or updating knowledge records.
 type KnowledgeForm struct {
 	Name          string         `json:"name"`
@@ -116,4 +133,34 @@ func (c *Client) UpdateKnowledge(ctx context.Context, id string, form KnowledgeF
 func (c *Client) DeleteKnowledge(ctx context.Context, id string) error {
 	path := fmt.Sprintf("knowledge/%s/delete", url.PathEscape(id))
 	return c.do(ctx, http.MethodDelete, path, nil, nil, nil)
+}
+
+// CreateKnowledgeDirectory creates a directory within a knowledge base.
+func (c *Client) CreateKnowledgeDirectory(ctx context.Context, knowledgeID string, name string, parentID *string) (*KnowledgeDirectoryModel, error) {
+	var resp KnowledgeDirectoryModel
+	form := KnowledgeDirectoryForm{Name: &name, ParentID: parentID}
+	path := fmt.Sprintf("knowledge/%s/dirs/create", url.PathEscape(knowledgeID))
+	if err := c.do(ctx, http.MethodPost, path, nil, form, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// UpdateKnowledgeDirectory updates a knowledge directory.
+func (c *Client) UpdateKnowledgeDirectory(ctx context.Context, knowledgeID string, directoryID string, name string, parentID *string) (*KnowledgeDirectoryModel, error) {
+	var resp KnowledgeDirectoryModel
+	form := KnowledgeDirectoryForm{Name: &name, ParentID: parentID}
+	path := fmt.Sprintf("knowledge/%s/dirs/%s/update", url.PathEscape(knowledgeID), url.PathEscape(directoryID))
+	if err := c.do(ctx, http.MethodPost, path, nil, form, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// DeleteKnowledgeDirectory deletes a knowledge directory.
+func (c *Client) DeleteKnowledgeDirectory(ctx context.Context, knowledgeID string, directoryID string, moveFiles bool) error {
+	query := url.Values{}
+	query.Set("move_files", fmt.Sprintf("%t", moveFiles))
+	path := fmt.Sprintf("knowledge/%s/dirs/%s/delete", url.PathEscape(knowledgeID), url.PathEscape(directoryID))
+	return c.do(ctx, http.MethodDelete, path, query, nil, nil)
 }

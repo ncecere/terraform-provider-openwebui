@@ -170,3 +170,21 @@ func (c *Client) UpdateToolValves(ctx context.Context, id string, valves map[str
 
 	return resp, nil
 }
+
+// ListToolsRaw returns the raw tool list payload.
+func (c *Client) ListToolsRaw(ctx context.Context) (any, error) {
+	var resp any
+	if err := c.do(ctx, http.MethodGet, "tools/list", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ExportToolsRaw returns the raw tools export payload.
+func (c *Client) ExportToolsRaw(ctx context.Context) (any, error) {
+	var resp any
+	if err := c.do(ctx, http.MethodGet, "tools/export", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

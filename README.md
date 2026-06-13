@@ -4,24 +4,30 @@ This repository contains an experimental Terraform provider that manages Open We
 
 - Knowledge bases
 - Knowledge base file attachments
+- Knowledge base directories
 - Models
 - Prompts
 - Groups
 - Tools and tool valves
+- Functions and function valves
 - Pipelines and pipeline valves
 - Files
-- Admin configs (connections, tool servers, code execution, models, suggestions, banners)
+- Folders
+- Admin configs (connections, tool servers, terminal servers, code execution, models, suggestions, banners, retrieval, evaluations, default user permissions)
 - Config import/export
+- Raw catalog data sources for models, prompts, tools, and tags
+- Prompt history data sources
 - OAuth client registration
 
 > ⚠️ The provider is in an early stage. API compatibility may change as Open WebUI evolves and the provider gains richer coverage and testing.
 
-## What's New in 2.0.0
+## What's New in 3.0.0
 
-- Added continuous delivery via GitHub Actions to publish tagged releases directly to the Terraform Registry.
-- Normalised prompt commands so Terraform configurations can omit the leading `/` without causing API mismatches.
-- Simplified the group resource by removing unsupported `data_json` / `meta_json` arguments and stabilised group member ordering to avoid false-positive plans.
-- Updated examples and documentation to use the new structured `params`/`capabilities` attributes and the `~> 2.0` provider constraint.
+- Updated compatibility for Open WebUI v0.9.6 and refreshed the bundled OpenAPI schema.
+- Added safe live E2E coverage under `dev_testing/e2e` for core resources, catalog data sources, and singleton config round-trips.
+- Added folders, knowledge directories, file content/process status, terminal server config/verify, functions/function valves, prompt history entry/diff, and broad raw catalog data sources.
+- Improved v0.9.6 prompt, model, file-list, and group compatibility fixes.
+- See [`CHANGELOG.md`](CHANGELOG.md) for the full release notes.
 
 ## Requirements
 
@@ -49,8 +55,8 @@ make install
 Copy the resulting binary into your Terraform plugin directory, for example on macOS:
 
 ```bash
-mkdir -p ~/.terraform.d/plugins/local/openwebui/openwebui/2.0.0/
-cp terraform-provider-openwebui ~/.terraform.d/plugins/local/openwebui/openwebui/2.0.0/darwin_arm64/
+mkdir -p ~/.terraform.d/plugins/local/openwebui/openwebui/3.0.0/
+cp terraform-provider-openwebui ~/.terraform.d/plugins/local/openwebui/openwebui/3.0.0/darwin_arm64/
 ```
 
 Adjust the path and OS/architecture segment to match your environment.
@@ -82,8 +88,8 @@ go test ./internal/provider -run TestAcc -v
 Tagged releases matching `v*.*.*` trigger the GitHub Actions workflow that builds provider artifacts and publishes them to the Terraform Registry. To cut a release:
 
 ```bash
-git tag -a v2.0.0 -m "Release 2.0.0"
-git push origin v2.0.0
+git tag -a v3.0.0 -m "Release 3.0.0"
+git push origin v3.0.0
 ```
 
 Ensure the repository is configured with a `TERRAFORM_REGISTRY_TOKEN` secret that has permission to publish to registry.terraform.io.
@@ -100,7 +106,7 @@ terraform {
   required_providers {
     openwebui = {
       source  = "local/openwebui/openwebui"
-      version = "2.0.0"
+      version = "3.0.0"
     }
   }
 }
@@ -237,16 +243,23 @@ resource "openwebui_file" "support_doc" {
 
 ## Examples
 
-Reference configurations live under `examples/`. Start with [`examples/basic`](examples/basic) for core resources, and see [`examples/admin`](examples/admin) for admin-focused configuration flows.
+Reference configurations live under `examples/`:
+
+- [`examples/minimal`](examples/minimal) – smallest practical configuration; creates and reads one prompt.
+- [`examples/full`](examples/full) – representative v3.0.0 workflow covering folders, prompts/history, knowledge directories, files, functions, and catalog data sources.
+- [`examples/basic`](examples/basic) – legacy core-resource example for knowledge, models, prompts, groups, and tools.
+- [`examples/admin`](examples/admin) – admin-focused flows that are intentionally guarded behind variables because they can affect global server settings.
+
+Provider documentation also includes [minimal](docs/guides/minimal.md) and [full](docs/guides/full.md) walkthroughs.
 
 ## Known Limitations / Next Steps
 
-- Acceptance tests are minimal and require a live Open WebUI instance; broaden coverage for tools, pipelines, files, and configs as needed.
-- The client currently exchanges opaque JSON fields using raw strings. Typed schemas, validation, and richer Terraform types would improve ergonomics.
+- Live E2E coverage is broad but intentionally avoids fixture-backed/default-destructive cases; pipelines, pipeline valves, OAuth client registration, config import, and external tool/terminal server verification remain opt-in or deferred.
+- MCP/tool server item add/remove testing is deferred; current server config resources manage singleton configuration payloads.
+- Several Open WebUI v0.9.6 endpoints expose loose schemas, so the provider intentionally uses raw JSON fields/data sources for unstable catalog, history, and config payloads.
 - Authentication is limited to bearer tokens. If Open WebUI exposes alternative auth flows they are not yet supported.
-- Pipeline list payloads are loosely typed in the OpenAPI spec; the provider preserves them as raw JSON.
 - The suggestions config endpoint does not expose a read API, so state is maintained from the last apply.
-- Config export/import payloads may include sensitive values; treat Terraform state accordingly.
+- Config export/import and admin config payloads may include sensitive values; treat Terraform state accordingly.
 - Additional Open WebUI resources (settings, datasets, agents, etc.) can be lifted into Terraform following the patterns used here.
 
 Contributions and feedback are welcome.

@@ -32,6 +32,8 @@ type fileResourceModel struct {
 	MetadataJSON        types.String `tfsdk:"metadata_json"`
 	Process             types.Bool   `tfsdk:"process"`
 	ProcessInBackground types.Bool   `tfsdk:"process_in_background"`
+	TargetFilename      types.String `tfsdk:"target_filename"`
+	Content             types.String `tfsdk:"content"`
 	Filename            types.String `tfsdk:"filename"`
 	Hash                types.String `tfsdk:"hash"`
 	UserID              types.String `tfsdk:"user_id"`
@@ -81,6 +83,14 @@ func (r *fileResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Computed:      true,
 				Description:   "Whether file processing should be queued in the background.",
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown(), boolplanmodifier.RequiresReplace()},
+			},
+			"target_filename": schema.StringAttribute{
+				Optional:    true,
+				Description: "Optional filename to set after upload. This renames the uploaded file without forcing replacement.",
+			},
+			"content": schema.StringAttribute{
+				Optional:    true,
+				Description: "Optional extracted text content to store for the file after upload.",
 			},
 			"filename": schema.StringAttribute{
 				Computed:    true,
@@ -160,6 +170,19 @@ func (r *fileResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	if !plan.TargetFilename.IsNull() && !plan.TargetFilename.IsUnknown() && plan.TargetFilename.ValueString() != "" {
+		if err := r.client.RenameFile(ctx, uploaded.ID, plan.TargetFilename.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Rename file failed", err.Error())
+			return
+		}
+	}
+	if !plan.Content.IsNull() && !plan.Content.IsUnknown() {
+		if err := r.client.UpdateFileContent(ctx, uploaded.ID, plan.Content.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Update file content failed", err.Error())
+			return
+		}
+	}
+
 	state, diags := fileStateFromAPI(ctx, r.client, uploaded.ID)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -170,6 +193,8 @@ func (r *fileResource) Create(ctx context.Context, req resource.CreateRequest, r
 	state.MetadataJSON = plan.MetadataJSON
 	state.Process = types.BoolValue(process)
 	state.ProcessInBackground = types.BoolValue(processInBackground)
+	state.TargetFilename = plan.TargetFilename
+	state.Content = plan.Content
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -201,23 +226,52 @@ func (r *fileResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	updated.MetadataJSON = state.MetadataJSON
 	updated.Process = state.Process
 	updated.ProcessInBackground = state.ProcessInBackground
+	updated.TargetFilename = state.TargetFilename
+	updated.Content = state.Content
 	resp.Diagnostics.Append(resp.State.Set(ctx, &updated)...)
 }
 
-// Update is a no-op; file changes require replacement.
+// Update mutates editable file metadata/content. Upload inputs still require replacement.
 func (r *fileResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	if r.client == nil {
 		resp.Diagnostics.AddError("Unconfigured API client", "Expected provider to configure the Open WebUI client before managing files.")
 		return
 	}
 
+	var plan fileResourceModel
 	var state fileResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	id := state.ID.ValueString()
+	if !plan.TargetFilename.IsNull() && !plan.TargetFilename.IsUnknown() && plan.TargetFilename.ValueString() != "" && !plan.TargetFilename.Equal(state.TargetFilename) {
+		if err := r.client.RenameFile(ctx, id, plan.TargetFilename.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Rename file failed", err.Error())
+			return
+		}
+	}
+	if !plan.Content.IsNull() && !plan.Content.IsUnknown() && !plan.Content.Equal(state.Content) {
+		if err := r.client.UpdateFileContent(ctx, id, plan.Content.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Update file content failed", err.Error())
+			return
+		}
+	}
+
+	updated, diags := fileStateFromAPI(ctx, r.client, id)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	updated.SourcePath = state.SourcePath
+	updated.MetadataJSON = state.MetadataJSON
+	updated.Process = state.Process
+	updated.ProcessInBackground = state.ProcessInBackground
+	updated.TargetFilename = plan.TargetFilename
+	updated.Content = plan.Content
+	resp.Diagnostics.Append(resp.State.Set(ctx, &updated)...)
 }
 
 // Delete removes the file.

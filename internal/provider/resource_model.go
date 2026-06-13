@@ -228,48 +228,31 @@ func (r *modelResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"capabilities": schema.SingleNestedAttribute{
 				Optional:    true,
-				Computed:    true,
 				Description: "Capability flags exposed by the model.",
 				Attributes: map[string]schema.Attribute{
 					"vision": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 					"file_upload": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 					"web_search": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 					"image_generation": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 					"code_interpreter": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 					"citations": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 					"status_updates": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 					"usage": schema.BoolAttribute{
-						Optional:      true,
-						Computed:      true,
-						PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+						Optional: true,
 					},
 				},
 			},
@@ -1052,12 +1035,16 @@ func flattenModelMeta(ctx context.Context, data map[string]any) (modelMetaState,
 
 	additional := copyStringAnyMap(data)
 
-	if value, ok := toStringValue(data["profile_image_url"]); ok {
-		state.ProfileImageURL = types.StringValue(value)
+	if raw, exists := data["profile_image_url"]; exists {
+		if value, ok := toStringValue(raw); ok {
+			state.ProfileImageURL = types.StringValue(value)
+		}
 		delete(additional, "profile_image_url")
 	}
-	if value, ok := toStringValue(data["description"]); ok {
-		state.Description = types.StringValue(value)
+	if raw, exists := data["description"]; exists {
+		if value, ok := toStringValue(raw); ok {
+			state.Description = types.StringValue(value)
+		}
 		delete(additional, "description")
 	}
 	if raw, ok := data["capabilities"]; ok {
@@ -1186,19 +1173,11 @@ func mergeStringAnyMaps(primary, secondary map[string]any) map[string]any {
 		return nil
 	}
 
-	if primary == nil {
-		result := make(map[string]any, len(secondary))
-		for k, v := range secondary {
-			result[k] = v
-		}
-		return result
-	}
-
 	result := make(map[string]any, len(primary)+len(secondary))
-	for k, v := range primary {
+	for k, v := range secondary {
 		result[k] = v
 	}
-	for k, v := range secondary {
+	for k, v := range primary {
 		result[k] = v
 	}
 

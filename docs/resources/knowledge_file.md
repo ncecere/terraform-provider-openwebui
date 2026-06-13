@@ -27,6 +27,7 @@ resource "openwebui_knowledge_file" "faq" {
 resource "openwebui_knowledge_file" "faq" {
   knowledge_id = openwebui_knowledge.support_faq.id
   file_id      = openwebui_file.support_doc.id
+  directory_id = openwebui_knowledge_dir.docs.directory_id
   delete_file  = true
 }
 ```
@@ -35,6 +36,7 @@ resource "openwebui_knowledge_file" "faq" {
 
 * `knowledge_id` (Required) – Knowledge base identifier.
 * `file_id` (Required) – File identifier to attach.
+* `directory_id` (Optional) – Knowledge directory ID to place the file in. Updating this moves the attachment.
 * `delete_file` (Optional) – Whether the file should be deleted when detached (defaults to `true`).
 
 ## Attribute Reference

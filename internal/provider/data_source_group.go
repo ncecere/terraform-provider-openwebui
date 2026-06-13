@@ -27,6 +27,11 @@ type groupDataSourceModel struct {
 	groupResourceModel
 }
 
+type groupDataSourceConfigModel struct {
+	GroupID types.String `tfsdk:"group_id"`
+	Name    types.String `tfsdk:"name"`
+}
+
 // NewGroupDataSource constructs a new group data source.
 func NewGroupDataSource() datasource.DataSource {
 	return &groupDataSource{}
@@ -86,14 +91,6 @@ func (d *groupDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 					},
 				},
 			},
-			"meta_json": schema.StringAttribute{
-				Computed:    true,
-				Description: "JSON metadata associated with the group.",
-			},
-			"data_json": schema.StringAttribute{
-				Computed:    true,
-				Description: "JSON payload containing additional group data.",
-			},
 			"user_id": schema.StringAttribute{
 				Computed:    true,
 				Description: "Identifier of the user who owns the group.",
@@ -128,20 +125,22 @@ func (d *groupDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	var config groupDataSourceModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	var groupID types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("group_id"), &groupID)...)
+	var nameValue types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("name"), &nameValue)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	id := ""
-	if !config.GroupID.IsNull() && !config.GroupID.IsUnknown() {
-		id = strings.TrimSpace(config.GroupID.ValueString())
+	if !groupID.IsNull() && !groupID.IsUnknown() {
+		id = strings.TrimSpace(groupID.ValueString())
 	}
 
 	name := ""
-	if !config.Name.IsNull() && !config.Name.IsUnknown() {
-		name = strings.TrimSpace(config.Name.ValueString())
+	if !nameValue.IsNull() && !nameValue.IsUnknown() {
+		name = strings.TrimSpace(nameValue.ValueString())
 	}
 
 	if id == "" {

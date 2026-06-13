@@ -9,13 +9,16 @@ import (
 
 // KnowledgeFileIDForm associates a file with a knowledge base.
 type KnowledgeFileIDForm struct {
-	FileID string `json:"file_id"`
+	FileID      string  `json:"file_id"`
+	DirectoryID *string `json:"directory_id,omitempty"`
 }
 
 // KnowledgeFileListResponse captures paginated file results for a knowledge base.
 type KnowledgeFileListResponse struct {
-	Items []FileUserResponse `json:"items"`
-	Total int                `json:"total"`
+	Items       []FileUserResponse        `json:"items"`
+	Directories []KnowledgeDirectoryModel `json:"directories,omitempty"`
+	Breadcrumbs []KnowledgeDirectoryModel `json:"breadcrumbs,omitempty"`
+	Total       int                       `json:"total"`
 }
 
 // FileUserResponse captures file details including user metadata.
@@ -33,9 +36,17 @@ type FileUserResponse struct {
 
 // ListKnowledgeFiles retrieves file attachments for a knowledge base.
 func (c *Client) ListKnowledgeFiles(ctx context.Context, knowledgeID string, queryValue string, viewOption string, orderBy string, direction string, page int) (*KnowledgeFileListResponse, error) {
+	return c.ListKnowledgeFilesFiltered(ctx, knowledgeID, queryValue, false, viewOption, orderBy, direction, "", page)
+}
+
+// ListKnowledgeFilesFiltered retrieves file attachments for a knowledge base with all supported filters.
+func (c *Client) ListKnowledgeFilesFiltered(ctx context.Context, knowledgeID string, queryValue string, includeContent bool, viewOption string, orderBy string, direction string, directoryID string, page int) (*KnowledgeFileListResponse, error) {
 	query := url.Values{}
 	if queryValue != "" {
 		query.Set("query", queryValue)
+	}
+	if includeContent {
+		query.Set("include_content", "true")
 	}
 	if viewOption != "" {
 		query.Set("view_option", viewOption)
@@ -45,6 +56,9 @@ func (c *Client) ListKnowledgeFiles(ctx context.Context, knowledgeID string, que
 	}
 	if direction != "" {
 		query.Set("direction", direction)
+	}
+	if directoryID != "" {
+		query.Set("directory_id", directoryID)
 	}
 	if page > 0 {
 		query.Set("page", fmt.Sprintf("%d", page))
@@ -61,8 +75,13 @@ func (c *Client) ListKnowledgeFiles(ctx context.Context, knowledgeID string, que
 
 // AddKnowledgeFile associates a file with a knowledge base.
 func (c *Client) AddKnowledgeFile(ctx context.Context, knowledgeID string, fileID string) (*KnowledgeFilesResponse, error) {
+	return c.AddKnowledgeFileToDirectory(ctx, knowledgeID, fileID, nil)
+}
+
+// AddKnowledgeFileToDirectory associates a file with a knowledge base and optional directory.
+func (c *Client) AddKnowledgeFileToDirectory(ctx context.Context, knowledgeID string, fileID string, directoryID *string) (*KnowledgeFilesResponse, error) {
 	var resp KnowledgeFilesResponse
-	form := KnowledgeFileIDForm{FileID: fileID}
+	form := KnowledgeFileIDForm{FileID: fileID, DirectoryID: directoryID}
 	path := fmt.Sprintf("knowledge/%s/file/add", url.PathEscape(knowledgeID))
 	if err := c.do(ctx, http.MethodPost, path, nil, form, &resp); err != nil {
 		return nil, err
@@ -80,6 +99,17 @@ func (c *Client) UpdateKnowledgeFile(ctx context.Context, knowledgeID string, fi
 		return nil, err
 	}
 
+	return &resp, nil
+}
+
+// MoveKnowledgeFile moves a file attachment to a directory.
+func (c *Client) MoveKnowledgeFile(ctx context.Context, knowledgeID string, fileID string, directoryID *string) (*KnowledgeFilesResponse, error) {
+	var resp KnowledgeFilesResponse
+	form := KnowledgeFileIDForm{FileID: fileID, DirectoryID: directoryID}
+	path := fmt.Sprintf("knowledge/%s/file/move", url.PathEscape(knowledgeID))
+	if err := c.do(ctx, http.MethodPost, path, nil, form, &resp); err != nil {
+		return nil, err
+	}
 	return &resp, nil
 }
 

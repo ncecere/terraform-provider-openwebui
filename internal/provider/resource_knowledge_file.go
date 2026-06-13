@@ -30,6 +30,7 @@ type knowledgeFileResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	KnowledgeID types.String `tfsdk:"knowledge_id"`
 	FileID      types.String `tfsdk:"file_id"`
+	DirectoryID types.String `tfsdk:"directory_id"`
 	DeleteFile  types.Bool   `tfsdk:"delete_file"`
 	FileJSON    types.String `tfsdk:"file_json"`
 }
@@ -69,6 +70,10 @@ func (r *knowledgeFileResource) Schema(_ context.Context, _ resource.SchemaReque
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"directory_id": schema.StringAttribute{
+				Optional:    true,
+				Description: "Knowledge directory ID to place the file in. Updating this moves the attachment.",
+			},
 			"delete_file": schema.BoolAttribute{
 				Optional:      true,
 				Computed:      true,
@@ -107,12 +112,18 @@ func (r *knowledgeFileResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	if _, err := r.client.AddKnowledgeFile(ctx, plan.KnowledgeID.ValueString(), plan.FileID.ValueString()); err != nil {
+	var directoryID *string
+	if !plan.DirectoryID.IsNull() && !plan.DirectoryID.IsUnknown() && plan.DirectoryID.ValueString() != "" {
+		value := plan.DirectoryID.ValueString()
+		directoryID = &value
+	}
+
+	if _, err := r.client.AddKnowledgeFileToDirectory(ctx, plan.KnowledgeID.ValueString(), plan.FileID.ValueString(), directoryID); err != nil {
 		resp.Diagnostics.AddError("Attach knowledge file failed", err.Error())
 		return
 	}
 
-	state, diags := readKnowledgeFileState(ctx, r.client, plan.KnowledgeID.ValueString(), plan.FileID.ValueString())
+	state, diags := readKnowledgeFileState(ctx, r.client, plan.KnowledgeID.ValueString(), plan.FileID.ValueString(), plan.DirectoryID)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -144,7 +155,7 @@ func (r *knowledgeFileResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
-	updated, diags := readKnowledgeFileState(ctx, r.client, state.KnowledgeID.ValueString(), state.FileID.ValueString())
+	updated, diags := readKnowledgeFileState(ctx, r.client, state.KnowledgeID.ValueString(), state.FileID.ValueString(), state.DirectoryID)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -156,23 +167,45 @@ func (r *knowledgeFileResource) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	updated.DeleteFile = state.DeleteFile
+	updated.DirectoryID = state.DirectoryID
 	resp.Diagnostics.Append(resp.State.Set(ctx, &updated)...)
 }
 
-// Update is a no-op; attachment changes require replacement.
+// Update mutates attachment options such as directory placement.
 func (r *knowledgeFileResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	if r.client == nil {
 		resp.Diagnostics.AddError("Unconfigured API client", "Expected provider to configure the Open WebUI client before managing knowledge files.")
 		return
 	}
 
+	var plan knowledgeFileResourceModel
 	var state knowledgeFileResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	if !plan.DirectoryID.Equal(state.DirectoryID) {
+		var directoryID *string
+		if !plan.DirectoryID.IsNull() && !plan.DirectoryID.IsUnknown() && plan.DirectoryID.ValueString() != "" {
+			value := plan.DirectoryID.ValueString()
+			directoryID = &value
+		}
+		if _, err := r.client.MoveKnowledgeFile(ctx, state.KnowledgeID.ValueString(), state.FileID.ValueString(), directoryID); err != nil {
+			resp.Diagnostics.AddError("Move knowledge file failed", err.Error())
+			return
+		}
+	}
+
+	updated, diags := readKnowledgeFileState(ctx, r.client, state.KnowledgeID.ValueString(), state.FileID.ValueString(), plan.DirectoryID)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	updated.DeleteFile = plan.DeleteFile
+	updated.DirectoryID = plan.DirectoryID
+	resp.Diagnostics.Append(resp.State.Set(ctx, &updated)...)
 }
 
 // Delete detaches the file from the knowledge base.
@@ -216,10 +249,14 @@ func (r *knowledgeFileResource) ImportState(ctx context.Context, req resource.Im
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func readKnowledgeFileState(ctx context.Context, apiClient *client.Client, knowledgeID string, fileID string) (knowledgeFileResourceModel, diag.Diagnostics) {
+func readKnowledgeFileState(ctx context.Context, apiClient *client.Client, knowledgeID string, fileID string, directoryID types.String) (knowledgeFileResourceModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	list, err := apiClient.ListKnowledgeFiles(ctx, knowledgeID, "", "", "", "", 1)
+	directoryFilter := ""
+	if !directoryID.IsNull() && !directoryID.IsUnknown() {
+		directoryFilter = directoryID.ValueString()
+	}
+	list, err := apiClient.ListKnowledgeFilesFiltered(ctx, knowledgeID, "", false, "", "", "", directoryFilter, 1)
 	if err != nil {
 		if err == client.ErrNotFound {
 			return knowledgeFileResourceModel{}, diags
@@ -238,6 +275,7 @@ func readKnowledgeFileState(ctx context.Context, apiClient *client.Client, knowl
 				ID:          types.StringValue(knowledgeID + ":" + fileID),
 				KnowledgeID: types.StringValue(knowledgeID),
 				FileID:      types.StringValue(fileID),
+				DirectoryID: directoryID,
 				FileJSON:    fileJSON,
 			}
 			return state, diags

@@ -30,6 +30,8 @@ resource "openwebui_file" "support_doc" {
   })
   process               = true
   process_in_background = true
+  target_filename       = "support_faq.txt"
+  content               = "Optional extracted text override."
 }
 ```
 
@@ -39,6 +41,8 @@ resource "openwebui_file" "support_doc" {
 * `metadata_json` (Optional) – JSON metadata sent during upload.
 * `process` (Optional) – Whether Open WebUI should process the file (defaults to `true`).
 * `process_in_background` (Optional) – Whether processing is queued in the background (defaults to `true`).
+* `target_filename` (Optional) – Filename to set after upload. Updating this renames the remote file.
+* `content` (Optional) – Extracted text content to set after upload. Updating this calls Open WebUI's content update endpoint.
 
 ## Attribute Reference
 

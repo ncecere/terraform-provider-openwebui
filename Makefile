@@ -4,7 +4,7 @@
 BIN ?= terraform-provider-openwebui
 GO ?= go
 BIN_DIR ?= $(CURDIR)/bin
-VERSION ?= 2.0.0
+VERSION ?= 3.0.0
 OS ?= $(shell $(GO) env GOOS)
 ARCH ?= $(shell $(GO) env GOARCH)
 LDFLAGS ?= -X github.com/nickcecere/terraform-provider-openwebui/internal/provider.Version=$(VERSION)

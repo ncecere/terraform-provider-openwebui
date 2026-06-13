@@ -86,6 +86,34 @@ func (d *modelDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 				Computed:    true,
 				Description: "Group names granted write access to the model.",
 			},
+			"profile_image_url": schema.StringAttribute{
+				Computed:    true,
+				Description: "Profile image URL for the model.",
+			},
+			"description": schema.StringAttribute{
+				Computed:    true,
+				Description: "Model description.",
+			},
+			"suggestion_prompts": schema.ListAttribute{
+				ElementType: types.StringType,
+				Computed:    true,
+				Description: "Suggestion prompts configured for the model.",
+			},
+			"tags": schema.ListAttribute{
+				ElementType: types.StringType,
+				Computed:    true,
+				Description: "Tags assigned to the model.",
+			},
+			"tool_ids": schema.ListAttribute{
+				ElementType: types.StringType,
+				Computed:    true,
+				Description: "Tool identifiers attached to the model.",
+			},
+			"default_feature_ids": schema.ListAttribute{
+				ElementType: types.StringType,
+				Computed:    true,
+				Description: "Default feature identifiers enabled for the model.",
+			},
 			"params": schema.SingleNestedAttribute{
 				Computed:    true,
 				Description: "Parameter values returned by Open WebUI.",

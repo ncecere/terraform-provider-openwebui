@@ -38,14 +38,19 @@ func normalizePromptCommand(command string) string {
 
 // promptResourceModel describes Terraform state.
 type promptResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Command     types.String `tfsdk:"command"`
-	Title       types.String `tfsdk:"title"`
-	Content     types.String `tfsdk:"content"`
-	ReadGroups  types.List   `tfsdk:"read_groups"`
-	WriteGroups types.List   `tfsdk:"write_groups"`
-	Timestamp   types.String `tfsdk:"timestamp"`
-	UserID      types.String `tfsdk:"user_id"`
+	ID            types.String `tfsdk:"id"`
+	Command       types.String `tfsdk:"command"`
+	Title         types.String `tfsdk:"title"`
+	Content       types.String `tfsdk:"content"`
+	DataJSON      types.String `tfsdk:"data_json"`
+	MetaJSON      types.String `tfsdk:"meta_json"`
+	Tags          types.List   `tfsdk:"tags"`
+	IsActive      types.Bool   `tfsdk:"is_active"`
+	CommitMessage types.String `tfsdk:"commit_message"`
+	ReadGroups    types.List   `tfsdk:"read_groups"`
+	WriteGroups   types.List   `tfsdk:"write_groups"`
+	Timestamp     types.String `tfsdk:"timestamp"`
+	UserID        types.String `tfsdk:"user_id"`
 }
 
 // NewPromptResource returns a configured resource instance.
@@ -82,6 +87,31 @@ func (r *promptResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"content": schema.StringAttribute{
 				Required:    true,
 				Description: "Prompt content text.",
+			},
+			"data_json": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Prompt data JSON.",
+			},
+			"meta_json": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Prompt metadata JSON.",
+			},
+			"tags": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
+				Description: "Prompt tags.",
+			},
+			"is_active": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Whether the prompt is active.",
+			},
+			"commit_message": schema.StringAttribute{
+				Optional:    true,
+				Description: "Optional commit message used when updating prompt content.",
 			},
 			"read_groups": schema.ListAttribute{
 				ElementType:   types.StringType,
@@ -139,6 +169,13 @@ func (r *promptResource) Create(ctx context.Context, req resource.CreateRequest,
 		Command: normalizePromptCommand(planCommand),
 		Title:   plan.Title.ValueString(),
 		Content: plan.Content.ValueString(),
+		Data:    decodeOptionalJSON(plan.DataJSON, path.Root("data_json"), &resp.Diagnostics),
+		Meta:    decodeOptionalJSON(plan.MetaJSON, path.Root("meta_json"), &resp.Diagnostics),
+		Tags:    expandStringList(ctx, plan.Tags, path.Root("tags"), &resp.Diagnostics),
+	}
+	if !plan.CommitMessage.IsNull() && !plan.CommitMessage.IsUnknown() {
+		value := plan.CommitMessage.ValueString()
+		form.CommitMessage = &value
 	}
 
 	readNames := expandStringList(ctx, plan.ReadGroups, path.Root("read_groups"), &resp.Diagnostics)
@@ -164,8 +201,22 @@ func (r *promptResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	// Ensure command attribute is persisted from plan (API echoes the same value).
+	if !plan.IsActive.IsNull() && !plan.IsActive.IsUnknown() && !state.IsActive.IsNull() && state.IsActive.ValueBool() != plan.IsActive.ValueBool() {
+		created, err = r.client.TogglePrompt(ctx, planCommand)
+		if err != nil {
+			resp.Diagnostics.AddError("Toggle prompt failed", err.Error())
+			return
+		}
+		state, diags = promptResponseToModel(ctx, r.client, created)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	state.Command = types.StringValue(planCommand)
 	state.ID = types.StringValue(planCommand)
+	state.CommitMessage = plan.CommitMessage
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -229,6 +280,13 @@ func (r *promptResource) Update(ctx context.Context, req resource.UpdateRequest,
 		Command: normalizedCommand,
 		Title:   plan.Title.ValueString(),
 		Content: plan.Content.ValueString(),
+		Data:    decodeOptionalJSON(plan.DataJSON, path.Root("data_json"), &resp.Diagnostics),
+		Meta:    decodeOptionalJSON(plan.MetaJSON, path.Root("meta_json"), &resp.Diagnostics),
+		Tags:    expandStringList(ctx, plan.Tags, path.Root("tags"), &resp.Diagnostics),
+	}
+	if !plan.CommitMessage.IsNull() && !plan.CommitMessage.IsUnknown() {
+		value := plan.CommitMessage.ValueString()
+		form.CommitMessage = &value
 	}
 
 	readNames := expandStringList(ctx, plan.ReadGroups, path.Root("read_groups"), &resp.Diagnostics)
@@ -253,8 +311,22 @@ func (r *promptResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
+	if !plan.IsActive.IsNull() && !plan.IsActive.IsUnknown() && !state.IsActive.IsNull() && state.IsActive.ValueBool() != plan.IsActive.ValueBool() {
+		updatedPrompt, err = r.client.TogglePrompt(ctx, plan.Command.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Toggle prompt failed", err.Error())
+			return
+		}
+		state, diags = promptResponseToModel(ctx, r.client, updatedPrompt)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	state.Command = types.StringValue(plan.Command.ValueString())
 	state.ID = types.StringValue(plan.Command.ValueString())
+	state.CommitMessage = plan.CommitMessage
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -318,11 +390,36 @@ func promptResponseToModel(ctx context.Context, apiClient *client.Client, resp *
 		}
 	}
 
+	dataJSON, err := encodeOptionalJSON(resp.Data)
+	if err != nil {
+		diags.AddError("Serialize prompt data", err.Error())
+	}
+	metaJSON, err := encodeOptionalJSON(resp.Meta)
+	if err != nil {
+		diags.AddError("Serialize prompt metadata", err.Error())
+	}
+	tagsList := types.ListNull(types.StringType)
+	if len(resp.Tags) > 0 {
+		l, listDiags := types.ListValueFrom(ctx, types.StringType, resp.Tags)
+		diags.Append(listDiags...)
+		if !listDiags.HasError() {
+			tagsList = l
+		}
+	}
+	isActive := types.BoolNull()
+	if resp.IsActive != nil {
+		isActive = types.BoolValue(*resp.IsActive)
+	}
+
 	state := promptResourceModel{
 		ID:          types.StringValue(resp.Command),
 		Command:     types.StringValue(resp.Command),
 		Title:       types.StringValue(resp.Title),
 		Content:     types.StringValue(resp.Content),
+		DataJSON:    dataJSON,
+		MetaJSON:    metaJSON,
+		Tags:        tagsList,
+		IsActive:    isActive,
 		ReadGroups:  readList,
 		WriteGroups: writeList,
 		Timestamp:   formatDateValue(resp.Timestamp),

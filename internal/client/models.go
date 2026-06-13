@@ -63,8 +63,48 @@ func (c *Client) UpdateModel(ctx context.Context, id string, form ModelForm) (*M
 	return &resp, nil
 }
 
+// ModelIDForm identifies a model for endpoints that expect a JSON body.
+type ModelIDForm struct {
+	ID string `json:"id"`
+}
+
 // DeleteModel removes a model by identifier.
 func (c *Client) DeleteModel(ctx context.Context, id string) error {
-	query := url.Values{"id": []string{id}}
-	return c.do(ctx, http.MethodPost, "models/model/delete", query, nil, nil)
+	return c.do(ctx, http.MethodPost, "models/model/delete", nil, ModelIDForm{ID: id}, nil)
+}
+
+// ListModelsRaw returns the raw models list payload.
+func (c *Client) ListModelsRaw(ctx context.Context) (any, error) {
+	var resp any
+	if err := c.do(ctx, http.MethodGet, "models", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ListBaseModelsRaw returns the raw base models payload.
+func (c *Client) ListBaseModelsRaw(ctx context.Context) (any, error) {
+	var resp any
+	if err := c.do(ctx, http.MethodGet, "models/base", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ListModelTagsRaw returns the raw model tags payload.
+func (c *Client) ListModelTagsRaw(ctx context.Context) (any, error) {
+	var resp any
+	if err := c.do(ctx, http.MethodGet, "models/tags", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ExportModelsRaw returns the raw model export payload.
+func (c *Client) ExportModelsRaw(ctx context.Context) (any, error) {
+	var resp any
+	if err := c.do(ctx, http.MethodGet, "models/export", nil, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

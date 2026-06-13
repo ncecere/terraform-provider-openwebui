@@ -34,6 +34,12 @@ resource "openwebui_prompt" "triage" {
     You are an assistant that triages inbound support tickets.
   EOT
 
+  tags = ["support", "triage"]
+  meta_json = jsonencode({
+    owner = "support"
+  })
+  is_active = true
+
   read_groups  = ["Support"]
   write_groups = ["Support"]
 }
@@ -46,6 +52,11 @@ If both `read_groups` and `write_groups` are omitted (or empty), the prompt rema
 * `command` (Required) – Unique identifier for the prompt. The provider automatically prefixes the command with `/` for API calls, so both `triage` and `/triage` are accepted.
 * `title` (Required) – Display name inside Open WebUI.
 * `content` (Required) – Prompt body text.
+* `data_json` (Optional) – Prompt data JSON.
+* `meta_json` (Optional) – Prompt metadata JSON.
+* `tags` (Optional) – Prompt tags.
+* `is_active` (Optional) – Whether the prompt is active.
+* `commit_message` (Optional) – Commit message for content updates.
 * `read_groups` (Optional) – List of group names or IDs granted read access.
 * `write_groups` (Optional) – List of group names or IDs granted write access. Groups listed here automatically receive read access.
 

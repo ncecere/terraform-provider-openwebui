@@ -2,7 +2,7 @@ terraform {
   required_providers {
     openwebui = {
       source  = "nickcecere/openwebui"
-      version = "~> 2.0"
+      version = "~> 3.0"
     }
   }
 }
